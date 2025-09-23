@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Moinama — Gestion des Tontines</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+    <link href="assets/styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app" class="d-flex">
+      <!-- Sidebar -->
+      <aside id="sidebar" class="sidebar border-end">
+        <div class="d-flex align-items-center gap-2 p-3 border-bottom">
+          <span class="logo-circle">M</span>
+          <div>
+            <div class="fw-bold">Moinama</div>
+            <small class="text-muted">Gestion des tontines</small>
+          </div>
+        </div>
+        <div class="p-3">
+          <div class="input-group input-group-sm mb-3">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input class="form-control" placeholder="Rechercher…" id="quickSearch" />
+          </div>
+          <nav class="nav flex-column gap-1" id="navLinks">
+            <a href="#/dashboard" class="nav-link active"><i class="bi bi-speedometer2 me-2"></i> Dashboard global</a>
+            <a href="#/me" class="nav-link"><i class="bi bi-person-badge me-2"></i> Mon dashboard</a>
+            <a href="#/tontines" class="nav-link"><i class="bi bi-diagram-3 me-2"></i> Tontines</a>
+            <a href="#/transactions" class="nav-link"><i class="bi bi-cash-coin me-2"></i> Transactions</a>
+            <a href="#/messaging" class="nav-link"><i class="bi bi-chat-dots me-2"></i> Messagerie</a>
+          </nav>
+        </div>
+        <div class="mt-auto p-3 border-top">
+          <div class="form-check form-switch d-flex align-items-center justify-content-between">
+            <label class="form-check-label me-2" for="darkModeSwitch">
+              <i class="bi bi-moon-stars"></i> Mode sombre
+            </label>
+            <input class="form-check-input" type="checkbox" role="switch" id="darkModeSwitch" />
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main content -->
+      <main class="flex-grow-1">
+        <!-- Topbar -->
+        <header class="topbar d-flex align-items-center justify-content-between px-3 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <button id="sidebarToggle" class="btn btn-sm btn-outline-secondary d-lg-none"><i class="bi bi-list"></i></button>
+            <h1 class="h5 m-0 page-title">Dashboard global</h1>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newTontineModal">
+              <i class="bi bi-plus-circle"></i> Nouvelle tontine
+            </button>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-person-circle"></i> <span id="currentUserName">Invité</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#/login"><i class="bi bi-box-arrow-in-right me-2"></i>Se connecter</a></li>
+                <li><a class="dropdown-item" href="#/register"><i class="bi bi-person-plus me-2"></i>S'inscrire</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><button class="dropdown-item" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Se déconnecter</button></li>
+              </ul>
+            </div>
+          </div>
+        </header>
+
+        <!-- Content wrapper -->
+        <div class="content p-3 p-lg-4">
+          <!-- Dashboard global -->
+          <section data-route="dashboard" class="route active">
+            <div class="row g-3">
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Total cotisations</div>
+                    <div class="kpi-value" id="kpiTotalContrib">0 FCFA</div>
+                    <div class="kpi-trend text-success"><i class="bi bi-arrow-up-right"></i> +3.4%</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Retraits</div>
+                    <div class="kpi-value" id="kpiWithdrawals">0 FCFA</div>
+                    <div class="kpi-trend text-danger"><i class="bi bi-arrow-down-right"></i> -1.2%</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Membres</div>
+                    <div class="kpi-value" id="kpiMembers">0</div>
+                    <div class="kpi-trend text-success"><i class="bi bi-people"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Tontines actives</div>
+                    <div class="kpi-value" id="kpiActiveGroups">0</div>
+                    <div class="kpi-trend text-success"><i class="bi bi-lightning-charge"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+              <div class="col-12 col-lg-8">
+                <div class="card h-100">
+                  <div class="card-header d-flex align-items-center justify-content-between">
+                    <span>Flux des contributions</span>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button class="btn btn-outline-secondary active" data-range="30">30j</button>
+                      <button class="btn btn-outline-secondary" data-range="90">3m</button>
+                      <button class="btn btn-outline-secondary" data-range="365">1a</button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <canvas id="contribChart" height="120"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-lg-4">
+                <div class="card h-100">
+                  <div class="card-header">Prochaines échéances</div>
+                  <div class="list-group list-group-flush small" id="upcomingPayments"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Mon dashboard -->
+          <section data-route="me" class="route">
+            <div class="row g-3">
+              <div class="col-12 col-lg-6">
+                <div class="card">
+                  <div class="card-header">Mes contributions</div>
+                  <div class="card-body">
+                    <ul class="list-group list-group-flush" id="myContribList"></ul>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <div class="card">
+                  <div class="card-header">Mes retraits</div>
+                  <div class="card-body">
+                    <ul class="list-group list-group-flush" id="myWithdrawList"></ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Tontines -->
+          <section data-route="tontines" class="route">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h2 class="h5 m-0">Tontines</h2>
+              <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTontineModal"><i class="bi bi-plus-circle me-1"></i>Créer</button>
+            </div>
+            <div class="row g-3" id="tontineCards"></div>
+          </section>
+          
+          <!-- Tontine detail -->
+          <section data-route="tontine-detail" class="route">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <button class="btn btn-outline-secondary btn-sm" id="backToTontines"><i class="bi bi-arrow-left"></i> Retour</button>
+              <h2 class="h5 m-0 flex-grow-1" id="tonDetailTitle">Détails de la tontine</h2>
+              <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-outline-primary" id="editTontineBtn"><i class="bi bi-pencil-square"></i> Éditer</button>
+                <button class="btn btn-outline-danger" id="deleteTontineBtn"><i class="bi bi-trash"></i> Supprimer</button>
+                <button class="btn btn-outline-success" id="addMemberBtn"><i class="bi bi-person-plus"></i> Ajouter membre</button>
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-6 col-lg-3">
+                <div class="card kpi"><div class="card-body">
+                  <div class="kpi-label">Membres</div>
+                  <div class="kpi-value" id="kpiTonMembers">0</div>
+                </div></div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi"><div class="card-body">
+                  <div class="kpi-label">Montant total cotisé</div>
+                  <div class="kpi-value" id="kpiTonTotal">0 FCFA</div>
+                </div></div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi"><div class="card-body">
+                  <div class="kpi-label">Taux de participation</div>
+                  <div class="kpi-value" id="kpiTonRate">0%</div>
+                </div></div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi"><div class="card-body">
+                  <div class="kpi-label">En retard / En attente</div>
+                  <div class="kpi-value" id="kpiTonLate">0</div>
+                </div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Membres et états de cotisation</span>
+                <small class="text-muted">Cliquez sur l'état pour le modifier</small>
+              </div>
+              <div class="px-3 pt-3">
+                <div class="d-flex align-items-center gap-2">
+                  <div id="tonRoundBanner" class="alert alert-info py-2 px-3 small mb-3 flex-grow-1" role="alert">
+                    <!-- Ex: Tour 1 – Prenant : Alice -->
+                  </div>
+                  <button id="validateRoundBtn" class="btn btn-sm btn-outline-primary mb-3"><i class="bi bi-check2-circle me-1"></i> Valider</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table align-middle mb-0" id="tonMembersTable">
+                  <thead>
+                    <tr>
+                      <th>Nom</th>
+                      <th>Contact</th>
+                      <th>État</th>
+                      <th class="text-end">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="px-3 pb-3">
+                <h6 class="text-muted mb-2">Historique des tours</h6>
+                <div id="tonRoundsHistory" class="accordion"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Transactions -->
+          <section data-route="transactions" class="route">
+            <div class="d-flex flex-wrap gap-2 align-items-end mb-2">
+              <div>
+                <label class="form-label small">Type</label>
+                <select id="txTypeFilter" class="form-select form-select-sm">
+                  <option value="all">Tous</option>
+                  <option value="contribution">Contribution</option>
+                  <option value="withdrawal">Retrait</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label small">Période</label>
+                <select id="txPeriodFilter" class="form-select form-select-sm">
+                  <option value="30">30 derniers jours</option>
+                  <option value="90">3 derniers mois</option>
+                  <option value="365">1 an</option>
+                </select>
+              </div>
+              <button id="exportCsvBtn" class="btn btn-outline-secondary btn-sm"><i class="bi bi-filetype-csv me-1"></i>Exporter CSV</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle table-hover" id="transactionsTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Membre</th>
+                    <th>Tontine</th>
+                    <th class="text-end">Montant</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Messagerie (optionnel) -->
+          <section data-route="messaging" class="route">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Messagerie interne</span>
+                <small class="text-muted">Optionnel (MVP)</small>
+              </div>
+              <div class="card-body chat-body" id="chatBody"></div>
+              <div class="card-footer">
+                <form id="chatForm" class="d-flex gap-2">
+                  <input id="chatInput" class="form-control" placeholder="Écrire un message…" />
+                  <button class="btn btn-primary"><i class="bi bi-send"></i></button>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- Auth routes -->
+          <section data-route="login" class="route">
+            <div class="row justify-content-center">
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="card shadow-sm">
+                  <div class="card-body">
+                    <h2 class="h5">Se connecter</h2>
+                    <form id="loginForm" class="mt-3">
+                      <div class="mb-3">
+                        <label class="form-label">Email ou Téléphone</label>
+                        <input class="form-control" id="loginIdentifier" required />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Mot de passe</label>
+                        <input type="password" class="form-control" id="loginPassword" required />
+                      </div>
+                      <button class="btn btn-primary w-100">Connexion</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section data-route="register" class="route">
+            <div class="row justify-content-center">
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="card shadow-sm">
+                  <div class="card-body">
+                    <h2 class="h5">Créer un compte</h2>
+                    <form id="registerForm" class="mt-3">
+                      <div class="mb-3">
+                        <label class="form-label">Nom complet</label>
+                        <input class="form-control" id="regName" required />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="regEmail" required />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Téléphone</label>
+                        <input class="form-control" id="regPhone" required />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Mot de passe</label>
+                        <input type="password" class="form-control" id="regPassword" minlength="6" required />
+                      </div>
+                      <button class="btn btn-primary w-100">S'inscrire</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal fade" id="newTontineModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Nouvelle tontine</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="tontineForm" class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Nom</label>
+                <input class="form-control" id="tonName" required />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Montant par contribution</label>
+                <div class="input-group">
+                  <input type="number" min="0" step="100" class="form-control" id="tonAmount" required />
+                  <span class="input-group-text">FCFA</span>
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Fréquence</label>
+                <select class="form-select" id="tonFrequency">
+                  <option value="hebdo">Hebdomadaire</option>
+                  <option value="mensuel">Mensuelle</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Durée (tours)</label>
+                <input type="number" min="1" class="form-control" id="tonRounds" required />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Date de début</label>
+                <input type="date" class="form-control" id="tonStartDate" required />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Membres (séparés par des virgules)</label>
+                <input class="form-control" id="tonMembers" placeholder="ex: Alice,Bob,Carla" />
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button class="btn btn-primary" id="saveTontineBtn"><i class="bi bi-check-circle me-1"></i>Enregistrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toasts -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="assets/data.js"></script>
+    <script src="assets/app.js"></script>
+  </body>
+</html>

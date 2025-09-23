@@ -1,0 +1,63 @@
+/* Theme variables */
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --primary: #0d6efd;
+}
+
+[data-theme="dark"] {
+  --bg: #0e1217;
+  --card: #121821;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #1f2937;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+  width: 260px;
+  background: var(--card);
+}
+.sidebar .nav-link {
+  color: var(--text);
+  border-radius: .5rem;
+}
+.sidebar .nav-link.active,
+.sidebar .nav-link:hover { background: rgba(13,110,253,.08); }
+
+.topbar { height: 56px; background: var(--card); }
+.page-title { color: var(--text); }
+
+.card { background: var(--card); border-color: var(--border); }
+.table { color: var(--text); }
+.table thead th { border-color: var(--border); }
+.table tbody td { border-color: var(--border); }
+
+.logo-circle { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-grid; place-items: center; font-weight: 700; }
+
+.kpi .kpi-label { color: var(--muted); font-size: .8rem; }
+.kpi .kpi-value { font-size: 1.25rem; font-weight: 700; }
+.kpi .kpi-trend { font-size: .8rem; }
+
+.chat-body { min-height: 280px; max-height: 420px; overflow: auto; }
+
+/* Routes */
+.route { display: none; }
+.route.active { display: block; }
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .sidebar { position: fixed; z-index: 1050; transform: translateX(-100%); transition: transform .25s ease; }
+  .sidebar.show { transform: translateX(0); }
+}
