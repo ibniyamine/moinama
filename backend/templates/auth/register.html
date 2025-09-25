@@ -1,0 +1,82 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div>
+            <h2>Register</h2>
+            <form id="registerForm" method="POST" action="/api/accounts/register/">
+                {% csrf_token %}
+                <input type="email" name="email" placeholder="Email (requis)" required>
+                <input type="password" name="password" placeholder="Mot de passe (requis)" required>
+                <input type="text" name="first_name" placeholder="Prénom (optionnel)">
+                <input type="text" name="last_name" placeholder="Nom (optionnel)">
+                <input type="text" name="phone" placeholder="Téléphone (optionnel)">
+                <button type="submit" class="btn-register">Register</button>
+            </form>
+        </div>
+        <h3>Message :</h3>
+        <pre id="response">(Veuillez vous inscrire)</pre>
+        <div class="footer-link">
+            <p>Already have an account? <a href="/login/">Login here</a>.</p>
+        </div>
+    </div>
+
+    <script>
+        const responseElement = document.getElementById('response');
+        
+        function getCsrfToken() {
+            return document.cookie.split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            delete data['csrfmiddlewaretoken'];
+
+            // Filter out empty optional fields so we don't send them
+            for (const key in data) {
+                if (data[key] === '') {
+                    delete data[key];
+                }
+            }
+
+            try {
+                const response = await fetch(`/api/accounts/register/`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify(data),
+                });
+                
+                if (response.ok) {
+                    responseElement.style.color = 'green';
+                    responseElement.textContent = 'Inscription réussie ! Vous pouvez maintenant vous connecter.';
+                } else {
+                    const result = await response.json();
+                    responseElement.style.color = 'red';
+                    let errorMessage = 'Échec de l\'inscription. Veuillez corriger les erreurs suivantes:\n';
+                    for (const field in result) {
+                        errorMessage += `- ${field}: ${result[field].join(', '_)}\n`;
+                    }
+                    responseElement.textContent = errorMessage;
+                }
+            } catch (error) {
+                responseElement.style.color = 'red';
+                responseElement.textContent = 'Une erreur de communication est survenue. Veuillez réessayer.';
+            }
+        });
+    </script>
+</body>
+</html>

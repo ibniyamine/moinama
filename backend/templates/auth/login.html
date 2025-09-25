@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div>
+            <h2>Login</h2>
+            <form id="loginForm">
+                {% csrf_token %}
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit" class="btn-login">Login</button>
+            </form>
+        </div>
+        <h3>Message :</h3>
+        <pre id="response">(Veuillez vous connecter)</pre>
+        <div class="footer-link">
+            <p>Don't have an account? <a href="/register/">Register here</a>.</p>
+        </div>
+    </div>
+
+    <script>
+        const responseElement = document.getElementById('response');
+        
+        function getCsrfToken() {
+            return document.cookie.split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            delete data['csrfmiddlewaretoken'];
+
+            try {
+                const response = await fetch(`/api/auth/token/`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.ok) {
+                    responseElement.style.color = 'green';
+                    responseElement.textContent = 'Connexion réussie !';
+                    // In a real app, you would now save the token and redirect.
+                    // For example:
+                    // const result = await response.json();
+                    // localStorage.setItem('accessToken', result.access);
+                    // window.location.href = '/dashboard/';
+                } else {
+                    responseElement.style.color = 'red';
+                    responseElement.textContent = 'Échec de la connexion. Veuillez vérifier vos identifiants.';
+                }
+            } catch (error) {
+                responseElement.style.color = 'red';
+                responseElement.textContent = 'Une erreur de communication est survenue. Veuillez réessayer.';
+            }
+        });
+    </script>
+</body>
+</html>
