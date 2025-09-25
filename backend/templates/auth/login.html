@@ -15,15 +15,21 @@
         <p>Connectez-vous pour accéder à votre espace</p>
     </div>
 
-    <form id="loginForm" method="POST" action="/api/auth/token/">
+    <form id="loginForm" method="POST" action="{% url 'login_page' %}">
         {% csrf_token %}
+        {% if form.errors %}
+            <div class="status-message error">
+                <div class="status-icon">❌</div>
+                <span>{{ form.non_field_errors }}</span>
+            </div>
+        {% endif %}
         <div class="input-group">
             <div class="input-wrapper">
                 <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
                 </svg>
-                <input type="email" id="email" name="email" placeholder="votre@email.com" required>
+                <input type="text" id="username" name="username" placeholder="Votre nom d'utilisateur" required>
             </div>
         </div>
 
@@ -44,60 +50,8 @@
         </button>
     </form>
 
-    <div class="status-message" id="response">
-        <div class="status-icon">💡</div>
-        <span>Saisissez vos identifiants pour vous connecter</span>
-    </div>
-
     <div class="form-footer">
         <p>Nouveau sur Moinama ? <a href="/register/">Créer un compte</a></p>
     </div>
 </div>
-
-<script>
-    const responseElement = document.getElementById('response');
-    const statusIcon = responseElement.querySelector('.status-icon');
-    const statusText = responseElement.querySelector('span');
-
-    function getCsrfToken() {
-        return document.cookie.split('; ')
-            .find(row => row.startsWith('csrftoken='))
-            ?.split('=')[1];
-    }
-
-    function updateStatus(type, icon, text) {
-        responseElement.className = `status-message ${type}`;
-        statusIcon.textContent = icon;
-        statusText.textContent = text;
-    }
-
-    document.getElementById('loginForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        const data = Object.fromEntries(formData.entries());
-        delete data['csrfmiddlewaretoken'];
-
-        updateStatus('loading', '⏳', 'Connexion en cours...');
-
-        try {
-            const response = await fetch(event.target.action, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify(data),
-            });
-
-            if (response.ok) {
-                updateStatus('success', '✅', 'Connexion réussie ! Redirection...');
-                setTimeout(() => window.location.href = '/dashboard/', 1500);
-            } else {
-                updateStatus('error', '❌', 'Identifiants incorrects. Veuillez réessayer.');
-            }
-        } catch (error) {
-            updateStatus('error', '⚠️', 'Erreur de connexion. Vérifiez votre connexion internet.');
-        }
-    });
-</script>
 {% endblock %}

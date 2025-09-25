@@ -366,6 +366,19 @@
     color: var(--text);
 }
 
+.logout-btn {
+    margin-top: var(--space-xl); /* Add some space above the logout button */
+    background: var(--error-bg); /* Use a color that indicates a "logout" action, e.g., a subtle red */
+    color: var(--error);
+    border: 1px solid var(--error-light);
+    justify-content: center; /* Center the icon and text */
+}
+
+.logout-btn:hover {
+    background: var(--error);
+    color: white;
+}
+
 @media (max-width: 1024px) {
     .mobile-menu-btn {
         display: block;
@@ -509,6 +522,14 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
                         Paramètres
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'logout' %}" class="nav-link logout-btn">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        Déconnexion
                     </a>
                 </li>
             </ul>
