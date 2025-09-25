@@ -10,11 +10,20 @@
     {% block page_styles %}{% endblock %}
 </head>
 <body>
-    <div class="auth-container">
-        <div class="logo">
-            <h1>Moinama</h1>
+    <div class="page-wrapper">
+        <div class="auth-container">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 40 40" fill="none">
+                        <rect width="40" height="40" rx="12" fill="var(--primary)"/>
+                        <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h1>Moinama</h1>
+            </div>
+            {% block content %}{% endblock %}
         </div>
-        {% block content %}{% endblock %}
+        <div class="background-pattern"></div>
     </div>
 </body>
 </html>

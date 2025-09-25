@@ -9,54 +9,97 @@
 {% endblock %}
 
 {% block content %}
-<div class="auth-form-wrapper">
-    <h2>Inscription</h2>
-    <form id="registerForm" method="POST" action="/api/accounts/register/">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="votre@email.com" required>
-        </div>
-
-        <div class="form-group">
-            <label for="password">Mot de passe</label>
-            <input type="password" id="password" name="password" placeholder="••••••••" required>
-        </div>
-
-        <div class="form-group">
-            <label for="first_name">Prénom <span class="optional">(optionnel)</span></label>
-            <input type="text" id="first_name" name="first_name" placeholder="Votre prénom">
-        </div>
-
-        <div class="form-group">
-            <label for="last_name">Nom <span class="optional">(optionnel)</span></label>
-            <input type="text" id="last_name" name="last_name" placeholder="Votre nom">
-        </div>
-
-        <div class="form-group">
-            <label for="phone">Téléphone <span class="optional">(optionnel)</span></label>
-            <input type="tel" id="phone" name="phone" placeholder="+33 6 12 34 56 78">
-        </div>
-
-        <button type="submit" class="btn-register">Créer le compte</button>
-    </form>
-
-    <div class="message" id="response">
-        Veuillez remplir le formulaire d'inscription
+<div class="form-card">
+    <div class="form-header">
+        <h2>Rejoignez Moinama</h2>
+        <p>Créez votre compte en quelques secondes</p>
     </div>
 
-    <div class="footer-link">
-        <p>Déjà un compte ? <a href="/login/">Se connecter</a></p>
+    <form id="registerForm" method="POST" action="/api/accounts/register/">
+        {% csrf_token %}
+        <div class="input-row">
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                    </svg>
+                    <input type="email" id="email" name="email" placeholder="votre@email.com" required>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="password" id="password" name="password" placeholder="Mot de passe sécurisé" required>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group half">
+                <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text" id="first_name" name="first_name" placeholder="Prénom">
+                </div>
+            </div>
+            <div class="input-group half">
+                <div class="input-wrapper">
+                    <input type="text" id="last_name" name="last_name" placeholder="Nom">
+                </div>
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                    </svg>
+                    <input type="tel" id="phone" name="phone" placeholder="Téléphone (optionnel)">
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="secondary-btn">
+            <span>Créer mon compte</span>
+            <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+        </button>
+    </form>
+
+    <div class="status-message" id="response">
+        <div class="status-icon">🚀</div>
+        <span>Remplissez le formulaire pour créer votre compte</span>
+    </div>
+
+    <div class="form-footer">
+        <p>Déjà membre ? <a href="/login/">Se connecter</a></p>
     </div>
 </div>
 
 <script>
     const responseElement = document.getElementById('response');
+    const statusIcon = responseElement.querySelector('.status-icon');
+    const statusText = responseElement.querySelector('span');
 
     function getCsrfToken() {
         return document.cookie.split('; ')
             .find(row => row.startsWith('csrftoken='))
             ?.split('=')[1];
+    }
+
+    function updateStatus(type, icon, text) {
+        responseElement.className = `status-message ${type}`;
+        statusIcon.textContent = icon;
+        statusText.textContent = text;
     }
 
     document.getElementById('registerForm').addEventListener('submit', async (event) => {
@@ -72,8 +115,7 @@
             }
         }
 
-        responseElement.className = 'message loading';
-        responseElement.textContent = 'Création du compte...';
+        updateStatus('loading', '⏳', 'Création de votre compte...');
 
         try {
             const response = await fetch(event.target.action, {
@@ -86,20 +128,18 @@
             });
 
             if (response.ok) {
-                responseElement.className = 'message success';
-                responseElement.textContent = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+                updateStatus('success', '🎉', 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.');
             } else {
                 const result = await response.json();
-                responseElement.className = 'message error';
-                let errorMessage = 'Erreurs détectées :\n';
+                let errorMessage = 'Erreurs détectées : ';
+                const errors = [];
                 for (const field in result) {
-                    errorMessage += `• ${field}: ${result[field].join(', ')}\n`;
+                    errors.push(`${field}: ${result[field].join(', ')}`);
                 }
-                responseElement.textContent = errorMessage;
+                updateStatus('error', '❌', errorMessage + errors.join(' | '));
             }
         } catch (error) {
-            responseElement.className = 'message error';
-            responseElement.textContent = 'Erreur de connexion. Veuillez réessayer.';
+            updateStatus('error', '⚠️', 'Erreur de connexion. Vérifiez votre connexion internet.');
         }
     });
 </script>

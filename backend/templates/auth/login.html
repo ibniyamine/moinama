@@ -9,39 +9,66 @@
 {% endblock %}
 
 {% block content %}
-<div class="auth-form-wrapper">
-    <h2>Connexion</h2>
-    <form id="loginForm" method="POST" action="/api/auth/token/">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="votre@email.com" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="password">Mot de passe</label>
-            <input type="password" id="password" name="password" placeholder="••••••••" required>
-        </div>
-
-        <button type="submit" class="btn-login">Se connecter</button>
-    </form>
-
-    <div class="message" id="response">
-        Veuillez vous connecter
+<div class="form-card">
+    <div class="form-header">
+        <h2>Bon retour parmi nous</h2>
+        <p>Connectez-vous pour accéder à votre espace</p>
     </div>
 
-    <div class="footer-link">
-        <p>Pas encore de compte ? <a href="/register/">Créer un compte</a></p>
+    <form id="loginForm" method="POST" action="/api/auth/token/">
+        {% csrf_token %}
+        <div class="input-group">
+            <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                </svg>
+                <input type="email" id="email" name="email" placeholder="votre@email.com" required>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                </svg>
+                <input type="password" id="password" name="password" placeholder="Votre mot de passe" required>
+            </div>
+        </div>
+
+        <button type="submit" class="primary-btn">
+            <span>Se connecter</span>
+            <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+        </button>
+    </form>
+
+    <div class="status-message" id="response">
+        <div class="status-icon">💡</div>
+        <span>Saisissez vos identifiants pour vous connecter</span>
+    </div>
+
+    <div class="form-footer">
+        <p>Nouveau sur Moinama ? <a href="/register/">Créer un compte</a></p>
     </div>
 </div>
 
 <script>
     const responseElement = document.getElementById('response');
-    
+    const statusIcon = responseElement.querySelector('.status-icon');
+    const statusText = responseElement.querySelector('span');
+
     function getCsrfToken() {
         return document.cookie.split('; ')
             .find(row => row.startsWith('csrftoken='))
             ?.split('=')[1];
+    }
+
+    function updateStatus(type, icon, text) {
+        responseElement.className = `status-message ${type}`;
+        statusIcon.textContent = icon;
+        statusText.textContent = text;
     }
 
     document.getElementById('loginForm').addEventListener('submit', async (event) => {
@@ -50,13 +77,12 @@
         const data = Object.fromEntries(formData.entries());
         delete data['csrfmiddlewaretoken'];
 
-        responseElement.className = 'message loading';
-        responseElement.textContent = 'Connexion en cours...';
+        updateStatus('loading', '⏳', 'Connexion en cours...');
 
         try {
             const response = await fetch(event.target.action, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCsrfToken()
                 },
@@ -64,16 +90,13 @@
             });
 
             if (response.ok) {
-                responseElement.className = 'message success';
-                responseElement.textContent = 'Connexion réussie ! Redirection...';
-                // In a real app, you would now save the token and redirect.
+                updateStatus('success', '✅', 'Connexion réussie ! Redirection...');
+                setTimeout(() => window.location.href = '/dashboard/', 1500);
             } else {
-                responseElement.className = 'message error';
-                responseElement.textContent = 'Email ou mot de passe incorrect. Veuillez réessayer.';
+                updateStatus('error', '❌', 'Identifiants incorrects. Veuillez réessayer.');
             }
         } catch (error) {
-            responseElement.className = 'message error';
-            responseElement.textContent = 'Erreur de connexion. Veuillez réessayer.';
+            updateStatus('error', '⚠️', 'Erreur de connexion. Vérifiez votre connexion internet.');
         }
     });
 </script>

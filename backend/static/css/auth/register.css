@@ -1,26 +1,4 @@
 /* static/css/auth/register.css */
-.btn-register {
-    width: 100%;
-    padding: 16px;
-    background: #059669;
-    color: white;
-    border: none;
-    border-radius: 14px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    margin-top: 0.5rem;
-    letter-spacing: -0.2px;
-}
-
-.btn-register:hover {
-    background: #047857;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
-}
-
-.btn-register:active {
-    transform: translateY(0);
-    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+.secondary-btn:active {
+    transform: translateY(1px);
 }
