@@ -1,6 +1,17 @@
+:root {
+    --primary-color: #007bff;
+    --primary-dark-color: #0056b3;
+    --success-color: #28a745;
+    --success-dark-color: #218838;
+    --light-gray: #f4f4f4;
+    --dark-gray: #333;
+    --medium-gray: #ddd;
+    --container-bg: white;
+}
+
 body {
     font-family: sans-serif;
-    background-color: #f4f4f4;
+    background-color: var(--light-gray);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -9,7 +20,7 @@ body {
 }
 
 .container {
-    background: white;
+    background: var(--container-bg);
     padding: 2rem;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -19,7 +30,7 @@ body {
 
 h2 {
     text-align: center;
-    color: #333;
+    color: var(--dark-gray);
 }
 
 form {
@@ -30,7 +41,7 @@ form {
 
 input {
     padding: 0.8rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--medium-gray);
     border-radius: 4px;
     font-size: 1rem;
 }
@@ -43,22 +54,6 @@ button {
     font-size: 1rem;
     cursor: pointer;
     transition: background-color 0.2s;
-}
-
-.btn-login {
-    background-color: #007bff;
-}
-
-.btn-login:hover {
-    background-color: #0056b3;
-}
-
-.btn-register {
-    background-color: #28a745;
-}
-
-.btn-register:hover {
-    background-color: #218838;
 }
 
 #response {
