@@ -25,6 +25,13 @@ class MeView(generics.GenericAPIView):
 def login_view(request):
     return render(request, 'auth/login.html')
 
+from django.contrib.auth.decorators import login_required
+
 @ensure_csrf_cookie
 def register_view(request):
     return render(request, 'auth/register.html')
+
+@login_required
+@ensure_csrf_cookie
+def dashboard_view(request):
+    return render(request, 'dashboard.html')
