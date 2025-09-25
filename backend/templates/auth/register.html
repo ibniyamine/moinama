@@ -1,3 +1,4 @@
+<!-- register.html -->
 {% extends 'base.html' %}
 {% load static %}
 
@@ -8,27 +9,50 @@
 {% endblock %}
 
 {% block content %}
-<div>
-    <h2>Register</h2>
+<div class="auth-form-wrapper">
+    <h2>Inscription</h2>
     <form id="registerForm" method="POST" action="/api/accounts/register/">
         {% csrf_token %}
-        <input type="email" name="email" placeholder="Email (requis)" required>
-        <input type="password" name="password" placeholder="Mot de passe (requis)" required>
-        <input type="text" name="first_name" placeholder="Prénom (optionnel)">
-        <input type="text" name="last_name" placeholder="Nom (optionnel)">
-        <input type="text" name="phone" placeholder="Téléphone (optionnel)">
-        <button type="submit" class="btn-register">Register</button>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="votre@email.com" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required>
+        </div>
+
+        <div class="form-group">
+            <label for="first_name">Prénom <span class="optional">(optionnel)</span></label>
+            <input type="text" id="first_name" name="first_name" placeholder="Votre prénom">
+        </div>
+
+        <div class="form-group">
+            <label for="last_name">Nom <span class="optional">(optionnel)</span></label>
+            <input type="text" id="last_name" name="last_name" placeholder="Votre nom">
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Téléphone <span class="optional">(optionnel)</span></label>
+            <input type="tel" id="phone" name="phone" placeholder="+33 6 12 34 56 78">
+        </div>
+
+        <button type="submit" class="btn-register">Créer le compte</button>
     </form>
-</div>
-<h3>Message :</h3>
-<pre id="response">(Veuillez vous inscrire)</pre>
-<div class="footer-link">
-    <p>Déjà un compte ? <a href="/login/">Connectez-vous ici</a>.</p>
+
+    <div class="message" id="response">
+        Veuillez remplir le formulaire d'inscription
+    </div>
+
+    <div class="footer-link">
+        <p>Déjà un compte ? <a href="/login/">Se connecter</a></p>
+    </div>
 </div>
 
 <script>
     const responseElement = document.getElementById('response');
-    
+
     function getCsrfToken() {
         return document.cookie.split('; ')
             .find(row => row.startsWith('csrftoken='))
@@ -41,38 +65,41 @@
         const data = Object.fromEntries(formData.entries());
         delete data['csrfmiddlewaretoken'];
 
-        // Filter out empty optional fields so we don't send them
+        // Filter out empty optional fields
         for (const key in data) {
             if (data[key] === '') {
                 delete data[key];
             }
         }
 
+        responseElement.className = 'message loading';
+        responseElement.textContent = 'Création du compte...';
+
         try {
             const response = await fetch(event.target.action, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCsrfToken()
                 },
                 body: JSON.stringify(data),
             });
-            
+
             if (response.ok) {
-                responseElement.style.color = 'green';
-                responseElement.textContent = 'Inscription réussie ! Vous pouvez maintenant vous connecter.';
+                responseElement.className = 'message success';
+                responseElement.textContent = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
             } else {
                 const result = await response.json();
-                responseElement.style.color = 'red';
-                let errorMessage = 'Échec de l\'inscription. Veuillez corriger les erreurs suivantes :\n';
+                responseElement.className = 'message error';
+                let errorMessage = 'Erreurs détectées :\n';
                 for (const field in result) {
-                    errorMessage += `- ${field}: ${result[field].join(', '_)}\n`;
+                    errorMessage += `• ${field}: ${result[field].join(', ')}\n`;
                 }
                 responseElement.textContent = errorMessage;
             }
         } catch (error) {
-            responseElement.style.color = 'red';
-            responseElement.textContent = 'Une erreur de communication est survenue. Veuillez réessayer.';
+            responseElement.className = 'message error';
+            responseElement.textContent = 'Erreur de connexion. Veuillez réessayer.';
         }
     });
 </script>

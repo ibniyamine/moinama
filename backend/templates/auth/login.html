@@ -1,3 +1,4 @@
+<!-- login.html -->
 {% extends 'base.html' %}
 {% load static %}
 
@@ -8,19 +9,30 @@
 {% endblock %}
 
 {% block content %}
-<div>
-    <h2>Login</h2>
+<div class="auth-form-wrapper">
+    <h2>Connexion</h2>
     <form id="loginForm" method="POST" action="/api/auth/token/">
         {% csrf_token %}
-        <input type="email" name="email" placeholder="Email" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <button type="submit" class="btn-login">Login</button>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="votre@email.com" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" class="btn-login">Se connecter</button>
     </form>
-</div>
-<h3>Message :</h3>
-<pre id="response">(Veuillez vous connecter)</pre>
-<div class="footer-link">
-    <p>Pas encore de compte ? <a href="/register/">Inscrivez-vous ici</a>.</p>
+
+    <div class="message" id="response">
+        Veuillez vous connecter
+    </div>
+
+    <div class="footer-link">
+        <p>Pas encore de compte ? <a href="/register/">Créer un compte</a></p>
+    </div>
 </div>
 
 <script>
@@ -38,6 +50,9 @@
         const data = Object.fromEntries(formData.entries());
         delete data['csrfmiddlewaretoken'];
 
+        responseElement.className = 'message loading';
+        responseElement.textContent = 'Connexion en cours...';
+
         try {
             const response = await fetch(event.target.action, {
                 method: 'POST',
@@ -49,16 +64,16 @@
             });
 
             if (response.ok) {
-                responseElement.style.color = 'green';
-                responseElement.textContent = 'Connexion réussie !';
+                responseElement.className = 'message success';
+                responseElement.textContent = 'Connexion réussie ! Redirection...';
                 // In a real app, you would now save the token and redirect.
             } else {
-                responseElement.style.color = 'red';
-                responseElement.textContent = 'Échec de la connexion. Veuillez vérifier vos identifiants.';
+                responseElement.className = 'message error';
+                responseElement.textContent = 'Email ou mot de passe incorrect. Veuillez réessayer.';
             }
         } catch (error) {
-            responseElement.style.color = 'red';
-            responseElement.textContent = 'Une erreur de communication est survenue. Veuillez réessayer.';
+            responseElement.className = 'message error';
+            responseElement.textContent = 'Erreur de connexion. Veuillez réessayer.';
         }
     });
 </script>

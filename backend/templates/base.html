@@ -1,0 +1,20 @@
+<!-- base.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Moinama{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block page_styles %}{% endblock %}
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">
+            <h1>Moinama</h1>
+        </div>
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
