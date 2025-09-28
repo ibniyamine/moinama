@@ -178,7 +178,11 @@ const App = (() => {
         // Mettre à jour la liste déroulante
         const select = $('#userSelect');
         select.innerHTML = '<option value="">Sélectionnez un utilisateur</option>' +
-            availableUsers.map(u => `<option value="${u.id}">${u.email} (${u.first_name || ''} ${u.last_name || ''})</option>`).join('');
+            availableUsers.map(u => {
+                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+                const display = fullName ? `${fullName} (${u.phone || u.email})` : (u.phone || u.email);
+                return `<option value="${u.id}">${display}</option>`;
+            }).join('');
   
         // Afficher la modale
         const addMemberModal = new bootstrap.Modal($('#addMemberModal'));
@@ -239,10 +243,14 @@ const App = (() => {
       // Members table
       const tbody = $('#tonMembersTable tbody');
       tbody.innerHTML = members.map(m => {
+        const fullName = `${m.user_first_name || ''} ${m.user_last_name || ''}`.trim();
+        const displayName = fullName || m.user_email;
+        const contactInfo = m.user_phone || m.user_email; // Prioritize phone if available
+
         return `
         <tr>
-          <td>${m.user_email}</td>
-          <td>-</td>
+          <td>${displayName}</td>
+          <td>${contactInfo}</td>
           <td>${statusBadge(m.role)}</td>
           <td class="text-end">
             <!-- Actions removed for now -->

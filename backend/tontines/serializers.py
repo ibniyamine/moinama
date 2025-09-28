@@ -29,11 +29,14 @@ class TontineMemberAddSerializer(serializers.Serializer):
 
 class TontineMemberSerializer(serializers.ModelSerializer):
     user_email = serializers.ReadOnlyField(source="user.email")
+    user_first_name = serializers.ReadOnlyField(source="user.first_name")
+    user_last_name = serializers.ReadOnlyField(source="user.last_name")
+    user_phone = serializers.ReadOnlyField(source="user.phone")
 
     class Meta:
         model = TontineMember
         fields = [
-            'id', 'tontine', 'user', 'user_email', 'role', 'joined_at', 'is_active', 'payout_order'
+            'id', 'tontine', 'user', 'user_email', 'user_first_name', 'user_last_name', 'user_phone', 'role', 'joined_at', 'is_active', 'payout_order'
         ]
         read_only_fields = ['id', 'joined_at', 'tontine']
 
