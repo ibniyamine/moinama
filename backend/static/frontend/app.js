@@ -1,10 +1,23 @@
+
 const Api = (() => {
   async function request(url, method = 'GET', data = null) {
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const token = localStorage.getItem('moinama.auth.access'); // Get token from localStorage
     const headers = {
       'Content-Type': 'application/json',
-      'X-CSRFToken': csrftoken,
     };
+
+    // Add Authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Add X-CSRFToken for non-GET requests
+    if (method !== 'GET') {
+      const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      if (csrftoken) {
+        headers['X-CSRFToken'] = csrftoken;
+      }
+    }
     const config = {
       method,
       headers,
@@ -41,11 +54,15 @@ const Api = (() => {
     put: (url, data) => request(url, 'PUT', data),
     patch: (url, data) => request(url, 'PATCH', data),
     delete: (url) => request(url, 'DELETE'),
+    login: (data) => request('/api/auth/token/', 'POST', data), // Added login function
     getMe: () => request('/api/accounts/me/'),
+    getUsers: () => request('/api/accounts/users/'),
     getTontines: () => request('/api/tontines/'),
     createTontine: (data) => request('/api/tontines/', 'POST', data),
     getTontineDetail: (id) => request(`/api/tontines/${id}/`),
     getTontineMembers: (id) => request(`/api/tontines/${id}/members/`),
+    // Corrected URL and data format
+    addTontineMember: (tontineId, userId) => request(`/api/tontines/${tontineId}/add-member/`, 'POST', { user_id: userId }),
   };
 })();
 
@@ -144,6 +161,62 @@ const App = (() => {
     return `<span class="badge ${cls}">${role === 'admin' ? 'Admin' : 'Membre'}</span>`;
   }
 
+  async function handleAddMember(tontine) {
+    try {
+        // Récupérer la liste des utilisateurs et des membres actuels en parallèle
+        const [allUsers, currentMembers] = await Promise.all([
+            Api.getUsers(),
+            Api.getTontineMembers(tontine.id)
+        ]);
+        
+        // Filtrer les utilisateurs qui ne sont pas déjà membres
+        const currentMemberIds = new Set(currentMembers.map(m => m.user));
+        const availableUsers = allUsers.filter(u => !currentMemberIds.has(u.id) && u.id !== state.user?.id);
+  
+        // Mettre à jour la liste déroulante
+        const select = $('#userSelect');
+        select.innerHTML = '<option value="">Sélectionnez un utilisateur</option>' +
+            availableUsers.map(u => `<option value="${u.id}">${u.email} (${u.first_name || ''} ${u.last_name || ''})</option>`).join('');
+  
+        // Afficher la modale
+        const addMemberModal = new bootstrap.Modal($('#addMemberModal'));
+        
+        // Nettoyer les anciens gestionnaires d'événements
+        const confirmBtn = $('#confirmAddMemberBtn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+  
+        // Ajouter le gestionnaire d'événement au nouveau bouton
+        newConfirmBtn.onclick = async () => {
+            const userId = parseInt(select.value);
+            if (!userId) {
+                notify('Erreur', 'Veuillez sélectionner un utilisateur');
+                return;
+            }
+  
+            try {
+                // 4. Appel Corrigé
+                await Api.addTontineMember(tontine.id, userId);
+                
+                notify('Succès', 'Membre ajouté à la tontine avec succès.');
+                addMemberModal.hide();
+                
+                // Rafraîchir la vue détaillée
+                renderTontineDetail(tontine.id);
+            } catch (error) {
+                console.error('Erreur lors de l\'ajout du membre:', error);
+                notify('Erreur', `Impossible d'ajouter le membre: ${error.message}`);
+            }
+        };
+  
+        // Afficher la modale
+        addMemberModal.show();
+    } catch (error) {
+        console.error('Erreur lors du chargement des utilisateurs:', error);
+        notify('Erreur', `Impossible de charger la liste des utilisateurs: ${error.message}`);
+    }
+  }
+
   async function renderTontineDetail(id) {
     try {
       const tontine = await Api.getTontineDetail(id);
@@ -151,6 +224,7 @@ const App = (() => {
 
       $('#tonDetailTitle').textContent = tontine.name;
       $('#backToTontines').onclick = () => { location.hash = '#/tontines'; };
+      $('#addMemberBtn').onclick = () => handleAddMember(tontine);
 
       // KPIs (simplified for now)
       $('#kpiTonMembers').textContent = members.length;
