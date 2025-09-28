@@ -40,7 +40,7 @@ class IsTontineMember(permissions.BasePermission):
 
 class TontineViewSet(viewsets.ModelViewSet):
     serializer_class = TontineSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsTontineAdminOrOwner]
 
     def get_queryset(self):
         user = self.request.user

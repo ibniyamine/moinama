@@ -63,6 +63,8 @@ const Api = (() => {
     getTontineMembers: (id) => request(`/api/tontines/${id}/members/`),
     // Corrected URL and data format
     addTontineMember: (tontineId, userId) => request(`/api/tontines/${tontineId}/add-member/`, 'POST', { user_id: userId }),
+    deleteTontine: (id) => request(`/api/tontines/${id}/`, 'DELETE'),
+    updateTontine: (id, data) => request(`/api/tontines/${id}/`, 'PATCH', data),
   };
 })();
 
@@ -225,6 +227,8 @@ const App = (() => {
       $('#tonDetailTitle').textContent = tontine.name;
       $('#backToTontines').onclick = () => { location.hash = '#/tontines'; };
       $('#addMemberBtn').onclick = () => handleAddMember(tontine);
+      $('#editTontineBtn').onclick = () => handleEditTontine(tontine); // Bind edit button
+      $('#deleteTontineBtn').onclick = () => handleDeleteTontine(tontine); // Bind delete button
 
       // KPIs (simplified for now)
       $('#kpiTonMembers').textContent = members.length;
@@ -250,6 +254,60 @@ const App = (() => {
         notify('Erreur', `Impossible de charger les détails: ${error.message}`);
         location.hash = '#/tontines';
     }
+  }
+
+  async function handleEditTontine(tontine) {
+    const editModal = new bootstrap.Modal($('#editTontineModal'));
+    $('#editTonName').value = tontine.name;
+    $('#editTonAmount').value = tontine.amount;
+    $('#editTonFrequency').value = tontine.frequency;
+    $('#editTonStartDate').value = tontine.start_date;
+    $('#editTonDescription').value = tontine.description || '';
+
+    const saveBtn = $('#saveEditTontineBtn');
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+    newSaveBtn.onclick = async () => {
+      const updatedData = {
+        name: $('#editTonName').value.trim(),
+        amount: parseFloat($('#editTonAmount').value),
+        frequency: $('#editTonFrequency').value,
+        start_date: $('#editTonStartDate').value,
+        description: $('#editTonDescription').value.trim(),
+      };
+
+      try {
+        await Api.updateTontine(tontine.id, updatedData);
+        notify('Succès', 'Tontine modifiée avec succès.');
+        editModal.hide();
+        renderTontineDetail(tontine.id); // Refresh detail view
+      } catch (error) {
+        console.error('Erreur lors de la modification de la tontine:', error);
+        notify('Erreur', `Impossible de modifier la tontine: ${error.message}`);
+      }
+    };
+    editModal.show();
+  }
+
+  async function handleDeleteTontine(tontine) {
+    const deleteModal = new bootstrap.Modal($('#deleteTontineModal'));
+    const confirmBtn = $('#confirmDeleteTontineBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.onclick = async () => {
+      try {
+        await Api.deleteTontine(tontine.id);
+        notify('Succès', 'Tontine supprimée avec succès.');
+        deleteModal.hide();
+        location.hash = '#/tontines'; // Go back to tontines list
+      } catch (error) {
+        console.error('Erreur lors de la suppression de la tontine:', error);
+        notify('Erreur', `Impossible de supprimer la tontine: ${error.message}`);
+      }
+    };
+    deleteModal.show();
   }
 
   function notify(title, message) {
