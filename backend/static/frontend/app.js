@@ -1,3 +1,4 @@
+
 const Api = (() => {
   async function request(url, method = 'GET', data = null) {
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -29,7 +30,6 @@ const Api = (() => {
       }
       throw new Error(errorMessage);
     }
-    // For 204 No Content
     if (response.status === 204) {
         return null;
     }
@@ -49,11 +49,8 @@ const Api = (() => {
 })();
 
 
-// Basic SPA routing + UI logic
 const App = (() => {
-  let state = { user: null, tontines: [] }; // State is now fetched from API
-  let contribChart;
-
+  let state = { user: null, tontines: [] };
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -71,6 +68,15 @@ const App = (() => {
 
   function formatCurrency(n) {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n).replace('XOF', 'FCFA');
+  }
+
+  function translateFrequency(freq) {
+    const map = {
+        'daily': 'Quotidienne',
+        'weekly': 'Hebdomadaire',
+        'monthly': 'Mensuelle'
+    };
+    return map[freq] || freq;
   }
 
   function routeTo(hash) {
@@ -102,8 +108,6 @@ const App = (() => {
       state.tontines.forEach(t => {
         const col = document.createElement('div');
         col.className = 'col-12 col-md-6 col-xl-4';
-        // Note: The data structure from the API (t) is different from the mock data.
-        // Adjust properties accordingly e.g., t.members.length becomes a separate API call if needed.
         col.innerHTML = `
           <div class="card h-100">
             <div class="card-body d-flex flex-column">
@@ -111,7 +115,7 @@ const App = (() => {
                 <h3 class="h6 m-0">${t.name}</h3>
                 <span class="badge bg-success">Active</span>
               </div>
-              <div class="small text-muted mb-2">Montant: <strong>${formatCurrency(t.amount)}</strong> · ${t.frequency}</div>
+              <div class="small text-muted mb-2">Montant: <strong>${formatCurrency(t.amount)}</strong> · ${translateFrequency(t.frequency)}</div>
               <div class="mt-auto d-flex gap-2">
                 <button class="btn btn-sm btn-outline-primary" data-action="contribute" data-id="${t.id}"><i class="bi bi-plus-circle"></i> Cotiser</button>
                 <button class="btn btn-sm btn-outline-info" data-action="view" data-id="${t.id}"><i class="bi bi-eye"></i> Voir plus</button>
@@ -146,6 +150,15 @@ const App = (() => {
   function bind() {
     $('#sidebarToggle').addEventListener('click', () => $('#sidebar').classList.toggle('show'));
 
+    $('#tontineCards').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action="view"]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      if (id) {
+        location.hash = `#/tontine/${id}`;
+      }
+    });
+
     $('#saveTontineBtn').addEventListener('click', async () => {
       const m = $('#newTontineModal');
       const name = $('#tonName').value.trim();
@@ -161,7 +174,7 @@ const App = (() => {
       try {
         const newTontine = await Api.createTontine({ name, amount, frequency, start_date: startDate });
         notify('Tontine créée', `"${newTontine.name}" a été ajoutée.`);
-        renderTontines(); // Refresh the list
+        renderTontines();
         const modal = bootstrap.Modal.getOrCreateInstance(m);
         modal.hide();
         $('#tontineForm').reset();
@@ -170,9 +183,6 @@ const App = (() => {
       }
     });
     
-    // The old login/register/logout listeners are removed.
-    // The logout button is now a simple link: <a href="/logout/">...</a>
-    // We find it in the DOM and update it.
     const logoutBtn = $('#logoutBtn');
     if(logoutBtn) {
         const logoutLink = document.createElement('a');
@@ -181,7 +191,6 @@ const App = (() => {
         logoutLink.innerHTML = '<i class="bi bi-box-arrow-right me-2"></i>Se déconnecter';
         logoutBtn.replaceWith(logoutLink);
     }
-
 
     window.addEventListener('hashchange', () => routeTo());
   }
@@ -195,8 +204,6 @@ const App = (() => {
       $('#currentUserName').textContent = state.user.first_name || state.user.username;
     } catch (e) {
       $('#currentUserName').textContent = 'Invité';
-      // If we can't get user, maybe session expired.
-      // The backend should have already redirected to login page if this page was protected.
     }
     
     routeTo();
