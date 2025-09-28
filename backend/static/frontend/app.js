@@ -1,4 +1,3 @@
-
 const Api = (() => {
   async function request(url, method = 'GET', data = null) {
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -45,6 +44,8 @@ const Api = (() => {
     getMe: () => request('/api/accounts/me/'),
     getTontines: () => request('/api/tontines/'),
     createTontine: (data) => request('/api/tontines/', 'POST', data),
+    getTontineDetail: (id) => request(`/api/tontines/${id}/`),
+    getTontineMembers: (id) => request(`/api/tontines/${id}/members/`),
   };
 })();
 
@@ -83,6 +84,15 @@ const App = (() => {
     const raw = (hash || location.hash || '#/dashboard');
     $$('.route').forEach(s => s.classList.remove('active'));
     
+    if (raw.startsWith('#/tontine/')) {
+      const tonId = raw.split('#/tontine/')[1];
+      $('[data-route="tontine-detail"]').classList.add('active');
+      $$('#navLinks .nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#/tontines'));
+      $('.page-title').textContent = 'Détails de la tontine';
+      renderTontineDetail(tonId);
+      return;
+    }
+
     const target = raw.replace('#/','');
     const el = document.querySelector(`[data-route="${target}"]`);
     if (el) el.classList.add('active');
@@ -126,6 +136,45 @@ const App = (() => {
       });
     } catch (error) {
       wrap.innerHTML = `<div class="alert alert-danger">Erreur: ${error.message}</div>`;
+    }
+  }
+
+  function statusBadge(role) {
+    const cls = role === 'admin' ? 'bg-primary' : 'bg-secondary';
+    return `<span class="badge ${cls}">${role === 'admin' ? 'Admin' : 'Membre'}</span>`;
+  }
+
+  async function renderTontineDetail(id) {
+    try {
+      const tontine = await Api.getTontineDetail(id);
+      const members = await Api.getTontineMembers(id);
+
+      $('#tonDetailTitle').textContent = tontine.name;
+      $('#backToTontines').onclick = () => { location.hash = '#/tontines'; };
+
+      // KPIs (simplified for now)
+      $('#kpiTonMembers').textContent = members.length;
+      $('#kpiTonTotal').textContent = formatCurrency(parseFloat(tontine.amount) * members.length);
+      $('#kpiTonRate').textContent = `n/a`;
+      $('#kpiTonLate').textContent = `n/a`;
+
+      // Members table
+      const tbody = $('#tonMembersTable tbody');
+      tbody.innerHTML = members.map(m => {
+        return `
+        <tr>
+          <td>${m.user_email}</td>
+          <td>-</td>
+          <td>${statusBadge(m.role)}</td>
+          <td class="text-end">
+            <!-- Actions removed for now -->
+          </td>
+        </tr>
+      `}).join('');
+
+    } catch (error) {
+        notify('Erreur', `Impossible de charger les détails: ${error.message}`);
+        location.hash = '#/tontines';
     }
   }
 
