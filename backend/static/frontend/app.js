@@ -346,14 +346,15 @@ const App = (() => {
       const amount = parseInt($('#tonAmount').value, 10) || 0;
       const frequency = $('#tonFrequency').value;
       const startDate = $('#tonStartDate').value;
-      
+      const description = $('#tonDescription').value.trim(); // Get description
+
       if (!name || !amount || !startDate) {
         notify('Erreur', 'Veuillez remplir les champs requis.');
         return;
       }
 
       try {
-        const newTontine = await Api.createTontine({ name, amount, frequency, start_date: startDate });
+        const newTontine = await Api.createTontine({ name, amount, frequency, start_date: startDate, description: description }); // Include description
         notify('Tontine créée', `"${newTontine.name}" a été ajoutée.`);
         renderTontines();
         const modal = bootstrap.Modal.getOrCreateInstance(m);
