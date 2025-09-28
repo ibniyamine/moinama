@@ -9,6 +9,10 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import auth
 
 
+def frontend_view(request):
+    return render(request, 'frontend/index.html')
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]

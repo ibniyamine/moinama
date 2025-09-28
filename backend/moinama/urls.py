@@ -20,9 +20,10 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from accounts.views import login_view, register_view, dashboard_view, logout_view
+from accounts.views import login_view, register_view, dashboard_view, logout_view, frontend_view
 
 urlpatterns = [
+    path('', frontend_view, name='home'),
     path('admin/', admin.site.urls),
 
     # Template-based views for login/register
