@@ -16,14 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic.base import RedirectView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from accounts.views import login_view, register_view, dashboard_view, logout_view, frontend_view
+from accounts.views import login_view, register_view, dashboard_view, logout_view
 
 urlpatterns = [
-    path('', frontend_view, name='home'),
+    path('', RedirectView.as_view(url='/login/', permanent=False)),
     path('admin/', admin.site.urls),
 
     # Template-based views for login/register

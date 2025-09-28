@@ -9,10 +9,6 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import auth
 
 
-def frontend_view(request):
-    return render(request, 'frontend/index.html')
-
-
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -52,7 +48,7 @@ def register_view(request):
 @login_required
 @ensure_csrf_cookie
 def dashboard_view(request):
-    return render(request, 'dashboard.html')
+    return render(request, 'frontend/index.html')
 
 def logout_view(request):
     logout(request)

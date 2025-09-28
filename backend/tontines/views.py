@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -23,8 +24,8 @@ class TontineViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return Tontine.objects.filter(memberships__user=user, memberships__is_active=True).union(
-            Tontine.objects.filter(owner=user)
+        return Tontine.objects.filter(
+            Q(owner=user) | Q(memberships__user=user, memberships__is_active=True)
         ).distinct()
 
     def perform_create(self, serializer):

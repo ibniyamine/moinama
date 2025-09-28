@@ -1,22 +1,6 @@
 const Api = (() => {
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  }
-
-  const csrftoken = getCookie('csrftoken');
-
   async function request(url, method = 'GET', data = null) {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     const headers = {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrftoken,
@@ -32,8 +16,18 @@ const Api = (() => {
     const response = await fetch(url, config);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: 'An unknown error occurred.' }));
-      throw new Error(errorData.detail || `Request failed with status ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      let errorMessage = errorData.detail;
+      if (!errorMessage) {
+          const fieldErrors = Object.entries(errorData).map(([field, messages]) => {
+              return `${field}: ${messages.join(' ')}`;
+          });
+          errorMessage = fieldErrors.join('; ');
+      }
+      if (!errorMessage) {
+          errorMessage = `Request failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
     }
     // For 204 No Content
     if (response.status === 204) {
