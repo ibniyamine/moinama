@@ -168,7 +168,7 @@ class TontineContributionStatusView(APIView):
         members_status = []
         for member_ship in tontine.memberships.all():
             member = member_ship.user
-            last_contribution = Contribution.objects.filter(tontine=tontine, member=member, is_confirmed=True).order_by('-date').first()
+            last_contribution = Contribution.objects.filter(tontine=tontine, member=member).order_by('-date').first()
             
             is_late = False
             if tontine.start_date and tontine.frequency:
