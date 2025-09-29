@@ -67,11 +67,14 @@ const Api = (() => {
     updateTontine: (id, data) => request(`/api/tontines/${id}/`, 'PATCH', data),
     createContribution: (data) => request('/api/transactions/contributions/', 'POST', data),
     getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
-    getContributions: (tontineId = null) => {
-      const url = tontineId ? `/api/transactions/contributions/?tontine_id=${tontineId}` : '/api/transactions/contributions/';
-      return request(url);
+    getContributions: (params = {}) => {
+      const query = new URLSearchParams(params).toString();
+      return request(`/api/transactions/contributions/${query ? `?${query}` : ''}`);
     },
-    getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
+    getWithdrawals: (params = {}) => {
+      const query = new URLSearchParams(params).toString();
+      return request(`/api/transactions/withdrawals/${query ? `?${query}` : ''}`);
+    },
     getDashboardStats: () => request('/api/transactions/dashboard-stats/'),
   };
 })();
@@ -539,25 +542,47 @@ const App = (() => {
   async function renderTransactions() {
     const tbody = $('#transactionsTable tbody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chargement...</td></tr>';
+
+    const typeFilter = $('#txTypeFilter').value;
+    const periodFilter = $('#txPeriodFilter').value;
+
+    let startDate = null;
+    const endDate = new Date().toISOString().split('T')[0]; // Today
+
+    if (periodFilter !== 'all') {
+      const days = parseInt(periodFilter);
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      startDate = d.toISOString().split('T')[0];
+    }
+
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
     try {
       // Ensure state.tontines is populated
       if (!state.tontines || state.tontines.length === 0) {
         state.tontines = await Api.getTontines();
-        console.log('Fetched tontines:', state.tontines);
       }
 
-      const contributions = await Api.getContributions();
-      console.log('Fetched contributions:', contributions);
+      let allTransactions = [];
 
-      const allTransactions = [
-        ...contributions.map(tx => {
-          console.log('Processing transaction:', tx);
+      if (typeFilter === 'all' || typeFilter === 'contribution') {
+        const contributions = await Api.getContributions(params);
+        allTransactions.push(...contributions.map(tx => {
           const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
-          console.log(`Tontine ID: ${tx.tontine}, Found Name: ${tontineName}`);
           return { ...tx, type: 'Contribution', member_name: tx.member_email, tontine_name: tontineName };
-        }),
-        // ...withdrawals.map(tx => ({ ...tx, type: 'Retrait', member_name: tx.beneficiary_email, tontine_name: state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A' })),
-      ];
+        }));
+      }
+
+      if (typeFilter === 'all' || typeFilter === 'withdrawal') {
+        const withdrawals = await Api.getWithdrawals(params);
+        allTransactions.push(...withdrawals.map(tx => {
+          const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
+          return { ...tx, type: 'Retrait', member_name: tx.beneficiary_email, tontine_name: tontineName };
+        }));
+      }
 
       if (!allTransactions.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aucune transaction trouvée.</td></tr>';
@@ -590,6 +615,9 @@ const App = (() => {
 
   function bind() {
     $('#sidebarToggle').addEventListener('click', () => $('#sidebar').classList.toggle('show'));
+
+    $('#txTypeFilter').addEventListener('change', renderTransactions);
+    $('#txPeriodFilter').addEventListener('change', renderTransactions);
 
     $('#tontineCards').addEventListener('click', (e) => {
       const viewBtn = e.target.closest('button[data-action="view"]');
