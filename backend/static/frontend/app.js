@@ -130,6 +130,57 @@ const App = (() => {
 
     if (target === 'tontines') renderTontines();
     if (target === 'transactions') renderTransactions();
+    if (target === 'me') renderMyDashboard();
+  }
+
+  async function renderMyDashboard() {
+    const myContribList = $('#myContribList');
+    const myWithdrawList = $('#myWithdrawList');
+
+    myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Chargement de vos contributions...</li>';
+    myWithdrawList.innerHTML = '<li class="list-group-item text-center text-muted">Chargement de vos retraits...</li>';
+
+    try {
+      if (!state.user) {
+        myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Veuillez vous connecter pour voir vos contributions.</li>';
+        myWithdrawList.innerHTML = '<li class="list-group-item text-center text-muted">Veuillez vous connecter pour voir vos retraits.</li>';
+        return;
+      }
+
+      // Ensure state.tontines is populated for displaying tontine names
+      if (!state.tontines || state.tontines.length === 0) {
+        state.tontines = await Api.getTontines();
+      }
+
+      const allContributions = await Api.getContributions();
+      const myContributions = allContributions.filter(tx => tx.member === state.user.id); // Assuming tx.member exists and matches user.id
+
+      if (!myContributions.length) {
+        myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Aucune contribution trouvée.</li>';
+      } else {
+        myContribList.innerHTML = myContributions.map(tx => {
+          const date = new Date(tx.date).toLocaleDateString('fr-FR');
+          const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
+          return `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                Contribution à <strong>${tontineName}</strong>
+                <div class="small text-muted">${date}</div>
+              </div>
+              <span class="text-success">+ ${formatCurrency(tx.amount)}</span>
+            </li>
+          `;
+        }).join('');
+      }
+
+      // Placeholder for withdrawals - no API for it yet
+      myWithdrawList.innerHTML = '<li class="list-group-item text-center text-muted">Aucun retrait trouvé ou fonctionnalité non implémentée.</li>';
+
+    } catch (error) {
+      console.error('Erreur lors du chargement du tableau de bord personnel:', error);
+      myContribList.innerHTML = `<li class="list-group-item text-center text-danger">Erreur: ${error.message}</li>`;
+      myWithdrawList.innerHTML = `<li class="list-group-item text-center text-danger">Erreur: ${error.message}</li>`;
+    }
   }
 
   async function renderTontines() {
