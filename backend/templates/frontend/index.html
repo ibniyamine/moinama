@@ -22,10 +22,7 @@
           </div>
         </div>
         <div class="p-3">
-          <div class="input-group input-group-sm mb-3">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input class="form-control" placeholder="Rechercher…" id="quickSearch" />
-          </div>
+          
           <nav class="nav flex-column gap-1" id="navLinks">
             <a href="#/dashboard" class="nav-link active"><i class="bi bi-speedometer2 me-2"></i> Dashboard global</a>
             <a href="#/me" class="nav-link"><i class="bi bi-person-badge me-2"></i> Mon dashboard</a>
@@ -61,10 +58,10 @@
                 <i class="bi bi-person-circle"></i> <span id="currentUserName">Invité</span>
               </button>
               <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{% url 'login_page' %}"><i class="bi bi-box-arrow-in-right me-2"></i>Se connecter</a></li>
-                <li><a class="dropdown-item" href="{% url 'register_page' %}"><i class="bi bi-person-plus me-2"></i>S'inscrire</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><button class="dropdown-item" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Se déconnecter</button></li>
+                <li id="loginMenuItem"><a class="dropdown-item" href="{% url 'login_page' %}"><i class="bi bi-box-arrow-in-right me-2"></i>Se connecter</a></li>
+                <li id="registerMenuItem"><a class="dropdown-item" href="{% url 'register_page' %}"><i class="bi bi-person-plus me-2"></i>S'inscrire</a></li>
+                <li id="authDivider" class="d-none"><hr class="dropdown-divider"></li>
+                <li id="logoutMenuItem" class="d-none"><button class="dropdown-item" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Se déconnecter</button></li>
               </ul>
             </div>
           </div>

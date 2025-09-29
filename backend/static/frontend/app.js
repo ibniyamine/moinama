@@ -575,16 +575,41 @@ const App = (() => {
       }
     });
     
-    const logoutBtn = $('#logoutBtn');
-    if(logoutBtn) {
-        const logoutLink = document.createElement('a');
-        logoutLink.href = '/logout/';
-        logoutLink.className = 'dropdown-item';
-        logoutLink.innerHTML = '<i class="bi bi-box-arrow-right me-2"></i>Se déconnecter';
-        logoutBtn.replaceWith(logoutLink);
+    // The logout button is now inside a dynamically managed <li>, so we attach the event listener directly.
+    // The <li>'s visibility is handled by updateAuthUI.
+    const logoutBtnElement = $('#logoutBtn');
+    if (logoutBtnElement) {
+        logoutBtnElement.addEventListener('click', () => {
+            // Perform logout action, e.g., clear token and redirect
+            localStorage.removeItem('moinama.auth.access');
+            localStorage.removeItem('moinama.auth.refresh');
+            location.href = '/'; // Redirect to home or login page
+        });
     }
 
     window.addEventListener('hashchange', () => routeTo());
+  }
+
+  function updateAuthUI() {
+    const loginItem = $('#loginMenuItem');
+    const registerItem = $('#registerMenuItem');
+    const authDivider = $('#authDivider');
+    const logoutItem = $('#logoutMenuItem');
+    const currentUserNameSpan = $('#currentUserName');
+
+    if (state.user) { // User is logged in
+      if (loginItem) loginItem.classList.add('d-none');
+      if (registerItem) registerItem.classList.add('d-none');
+      if (authDivider) authDivider.classList.remove('d-none');
+      if (logoutItem) logoutItem.classList.remove('d-none');
+      if (currentUserNameSpan) currentUserNameSpan.textContent = state.user.first_name || state.user.username;
+    } else { // User is not logged in
+      if (loginItem) loginItem.classList.remove('d-none');
+      if (registerItem) registerItem.classList.remove('d-none');
+      if (authDivider) authDivider.classList.add('d-none');
+      if (logoutItem) logoutItem.classList.add('d-none');
+      if (currentUserNameSpan) currentUserNameSpan.textContent = 'Invité';
+    }
   }
 
   async function init() {
@@ -593,11 +618,13 @@ const App = (() => {
     
     try {
       state.user = await Api.getMe();
-      $('#currentUserName').textContent = state.user.first_name || state.user.username;
+      // $('#currentUserName').textContent = state.user.first_name || state.user.username; // Handled by updateAuthUI
     } catch (e) {
-      $('#currentUserName').textContent = 'Invité';
+      state.user = null; // Ensure state.user is null if API call fails
+      // $('#currentUserName').textContent = 'Invité'; // Handled by updateAuthUI
     }
     
+    updateAuthUI(); // Call after state.user is determined
     routeTo();
   }
 
