@@ -65,6 +65,13 @@ const Api = (() => {
     addTontineMember: (tontineId, userId) => request(`/api/tontines/${tontineId}/add-member/`, 'POST', { user_id: userId }),
     deleteTontine: (id) => request(`/api/tontines/${id}/`, 'DELETE'),
     updateTontine: (id, data) => request(`/api/tontines/${id}/`, 'PATCH', data),
+    createContribution: (data) => request('/api/transactions/contributions/', 'POST', data),
+    getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
+    getContributions: (tontineId = null) => {
+      const url = tontineId ? `/api/transactions/contributions/?tontine_id=${tontineId}` : '/api/transactions/contributions/';
+      return request(url);
+    },
+    getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
   };
 })();
 
@@ -122,6 +129,7 @@ const App = (() => {
     }[target] || 'Moinama';
 
     if (target === 'tontines') renderTontines();
+    if (target === 'transactions') renderTransactions();
   }
 
   async function renderTontines() {
@@ -225,8 +233,11 @@ const App = (() => {
 
   async function renderTontineDetail(id) {
     try {
-      const tontine = await Api.getTontineDetail(id);
-      const members = await Api.getTontineMembers(id);
+      const [tontine, members, contributionStatus] = await Promise.all([
+        Api.getTontineDetail(id),
+        Api.getTontineMembers(id),
+        Api.getTontineContributionStatus(id)
+      ]);
 
       $('#tonDetailTitle').textContent = tontine.name;
       $('#backToTontines').onclick = () => { location.hash = '#/tontines'; };
@@ -234,29 +245,72 @@ const App = (() => {
       $('#editTontineBtn').onclick = () => handleEditTontine(tontine); // Bind edit button
       $('#deleteTontineBtn').onclick = () => handleDeleteTontine(tontine); // Bind delete button
 
-      // KPIs (simplified for now)
+      // KPIs
+      const totalContributed = contributionStatus.members_status.reduce((sum, m) => sum + (m.last_contribution_amount || 0), 0);
+      const lateMembersCount = contributionStatus.members_status.filter(m => m.is_late).length;
+      const participationRate = members.length > 0 ? ((members.length - lateMembersCount) / members.length * 100).toFixed(0) : 0;
+
       $('#kpiTonMembers').textContent = members.length;
-      $('#kpiTonTotal').textContent = formatCurrency(parseFloat(tontine.amount) * members.length);
-      $('#kpiTonRate').textContent = `n/a`;
-      $('#kpiTonLate').textContent = `n/a`;
+      $('#kpiTonTotal').textContent = formatCurrency(totalContributed);
+      $('#kpiTonRate').textContent = `${participationRate}%`;
+      $('#kpiTonLate').textContent = lateMembersCount;
 
       // Members table
       const tbody = $('#tonMembersTable tbody');
-      tbody.innerHTML = members.map(m => {
-        const fullName = `${m.user_first_name || ''} ${m.user_last_name || ''}`.trim();
-        const displayName = fullName || m.user_email;
-        const contactInfo = m.user_phone || m.user_email; // Prioritize phone if available
+      tbody.innerHTML = contributionStatus.members_status.map(mStatus => {
+        const member = members.find(mem => mem.user === mStatus.member_id);
+        if (!member) return ''; // Should not happen if data is consistent
+
+        const fullName = `${member.user_first_name || ''} ${member.user_last_name || ''}`.trim();
+        const displayName = fullName || member.user_email;
+        const contactInfo = member.user_phone || member.user_email;
+
+        let statusHtml = '';
+        if (mStatus.is_late) {
+          statusHtml = '<span class="badge bg-danger">En retard</span>';
+        } else if (mStatus.is_confirmed) {
+          statusHtml = '<span class="badge bg-success">Confirmé</span>';
+        } else if (mStatus.last_contribution_date) {
+          statusHtml = '<span class="badge bg-warning">En attente</span>';
+        } else {
+          statusHtml = '<span class="badge bg-info">Pas encore cotisé</span>';
+        }
+
+        const isOwner = state.user && tontine.owner === state.user.id;
+        const confirmButton = isOwner && mStatus.last_contribution_date && !mStatus.is_confirmed ?
+          `<button class="btn btn-sm btn-success" data-action="confirm-contribution" data-contribution-id="${mStatus.last_contribution_id}"><i class="bi bi-check-circle"></i> Confirmer</button>` : '';
 
         return `
         <tr>
           <td>${displayName}</td>
           <td>${contactInfo}</td>
-          <td>${statusBadge(m.role)}</td>
+          <td>
+            ${statusHtml}
+            ${mStatus.last_contribution_amount ? `<br><small class="text-muted">${formatCurrency(mStatus.last_contribution_amount)} le ${mStatus.last_contribution_date}</small>` : ''}
+          </td>
           <td class="text-end">
-            <!-- Actions removed for now -->
+            ${confirmButton}
           </td>
         </tr>
-      `}).join('');
+      `;
+      }).join('');
+
+      // Add event listener for confirm contribution buttons
+      tbody.querySelectorAll('button[data-action="confirm-contribution"]').forEach(button => {
+        button.addEventListener('click', async (e) => {
+          const contributionId = e.target.getAttribute('data-contribution-id');
+          if (contributionId) {
+            try {
+              await Api.patch(`/api/transactions/contributions/${contributionId}/`, { is_confirmed: true });
+              notify('Succès', 'Contribution confirmée.');
+              renderTontineDetail(tontine.id); // Refresh view
+            } catch (error) {
+              console.error('Erreur lors de la confirmation:', error);
+              notify('Erreur', `Impossible de confirmer la contribution: ${error.message}`);
+            }
+          }
+        });
+      });
 
     } catch (error) {
         notify('Erreur', `Impossible de charger les détails: ${error.message}`);
@@ -336,15 +390,100 @@ const App = (() => {
     el.addEventListener('hidden.bs.toast', () => el.remove());
   }
 
+  async function handleContribute(tontine) {
+    const contributeModal = new bootstrap.Modal($('#contributeModal'));
+    $('#contributeTontineName').value = tontine.name;
+    $('#contributeTontineId').value = tontine.id;
+    $('#contributeAmount').value = tontine.amount;
+    $('#contributeNote').value = ''; // Clear previous note
+
+    const confirmBtn = $('#confirmContributeBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.onclick = async () => {
+      const data = {
+        tontine: tontine.id,
+        amount: parseFloat($('#contributeAmount').value),
+        note: $('#contributeNote').value.trim(),
+      };
+
+      try {
+        await Api.createContribution(data);
+        notify('Succès', `Contribution de ${formatCurrency(data.amount)} à ${tontine.name} enregistrée.`);
+        contributeModal.hide();
+        // Optionally refresh the tontine detail view if we are on it
+        if (location.hash === `#/tontine/${tontine.id}`) {
+          renderTontineDetail(tontine.id);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la contribution:', error);
+        notify('Erreur', `Impossible d'enregistrer la contribution: ${error.message}`);
+      }
+    };
+    contributeModal.show();
+  }
+
+  async function renderTransactions() {
+    const tbody = $('#transactionsTable tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chargement...</td></tr>';
+    try {
+      const contributions = await Api.getContributions();
+      // const withdrawals = await Api.getWithdrawals(); // Feature skipped for now
+
+      const allTransactions = [
+        ...contributions.map(tx => ({ ...tx, type: 'Contribution', member_name: tx.member_email, tontine_name: state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A' })),
+        // ...withdrawals.map(tx => ({ ...tx, type: 'Retrait', member_name: tx.beneficiary_email, tontine_name: state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A' })),
+      ];
+
+      if (!allTransactions.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aucune transaction trouvée.</td></tr>';
+        return;
+      }
+
+      // Sort by date descending
+      allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      tbody.innerHTML = allTransactions.map(tx => {
+        const date = new Date(tx.date).toLocaleDateString('fr-FR');
+        const amountClass = tx.type === 'Contribution' ? 'text-success' : 'text-danger';
+        const sign = tx.type === 'Contribution' ? '+' : '-';
+
+        return `
+          <tr>
+            <td>${date}</td>
+            <td>${tx.type}</td>
+            <td>${tx.member_name}</td>
+            <td>${tx.tontine_name}</td>
+            <td class="text-end ${amountClass}">${sign} ${formatCurrency(tx.amount)}</td>
+          </tr>
+        `;
+      }).join('');
+
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Erreur: ${error.message}</td></tr>`;
+    }
+  }
+
   function bind() {
     $('#sidebarToggle').addEventListener('click', () => $('#sidebar').classList.toggle('show'));
 
     $('#tontineCards').addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-action="view"]');
-      if (!btn) return;
-      const id = btn.getAttribute('data-id');
-      if (id) {
-        location.hash = `#/tontine/${id}`;
+      const viewBtn = e.target.closest('button[data-action="view"]');
+      if (viewBtn) {
+        const id = viewBtn.getAttribute('data-id');
+        if (id) {
+          location.hash = `#/tontine/${id}`;
+        }
+      }
+
+      const contributeBtn = e.target.closest('button[data-action="contribute"]');
+      if (contributeBtn) {
+        const id = contributeBtn.getAttribute('data-id');
+        const tontine = state.tontines.find(t => t.id == id);
+        if (tontine) {
+          handleContribute(tontine);
+        }
       }
     });
 

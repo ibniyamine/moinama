@@ -10,14 +10,21 @@ User = get_user_model()
 
 
 class IsTontineAdminOrOwner(permissions.BasePermission):
-    """Permission to check if the user is an admin or the owner of the tontine."""
+    """Permission to check if the user is an admin or the owner of the tontine.
+    Allows read-only access for any authenticated member of the tontine.
+    """
 
     def has_object_permission(self, request, view, obj):
         if not request.user.is_authenticated:
             return False
         
         tontine = obj if isinstance(obj, Tontine) else obj.tontine
+
+        # Allow read-only access for any authenticated member of the tontine
+        if request.method in permissions.SAFE_METHODS:
+            return TontineMember.objects.filter(tontine=tontine, user=request.user, is_active=True).exists() or tontine.owner == request.user
         
+        # Write permissions are only for owner or admin
         is_owner = tontine.owner == request.user
         is_admin = TontineMember.objects.filter(
             tontine=tontine, user=request.user, role='admin', is_active=True

@@ -9,6 +9,7 @@ class Contribution(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateTimeField(auto_now_add=True)
     note = models.CharField(max_length=255, blank=True)
+    is_confirmed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Contribution {self.amount} - {self.member} -> {self.tontine}"

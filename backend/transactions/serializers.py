@@ -7,8 +7,8 @@ class ContributionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contribution
-        fields = ['id', 'tontine', 'member', 'member_email', 'amount', 'date', 'note']
-        read_only_fields = ['id', 'date', 'member_email']
+        fields = ['id', 'tontine', 'member', 'member_email', 'amount', 'date', 'note', 'is_confirmed']
+        read_only_fields = ['id', 'date', 'member_email', 'member']
 
     def create(self, validated_data):
         request = self.context.get('request')

@@ -1,11 +1,10 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import ContributionViewSet, WithdrawalViewSet
-
-router = DefaultRouter()
-router.register(r'contributions', ContributionViewSet, basename='contribution')
-router.register(r'withdrawals', WithdrawalViewSet, basename='withdrawal')
+from django.urls import path
+from .views import ContributionListCreateView, ContributionDetailView, WithdrawalListCreateView, WithdrawalDetailView, TontineContributionStatusView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('contributions/', ContributionListCreateView.as_view(), name='contribution-list-create'),
+    path('contributions/<int:pk>/', ContributionDetailView.as_view(), name='contribution-detail'),
+    path('withdrawals/', WithdrawalListCreateView.as_view(), name='withdrawal-list-create'),
+    path('withdrawals/<int:pk>/', WithdrawalDetailView.as_view(), name='withdrawal-detail'),
+    path('tontines/<int:tontine_id>/status/', TontineContributionStatusView.as_view(), name='tontine-contribution-status'),
 ]
