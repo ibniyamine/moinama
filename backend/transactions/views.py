@@ -234,38 +234,31 @@ class TontineContributionStatusView(APIView):
             
             is_late = False
             if tontine.start_date and tontine.frequency:
-                # Determine the effective start date for this member's contributions
-                # This could be the tontine's start_date or the member's joined_at date, whichever is later
-                effective_start_date = tontine.start_date
-                member_ship_obj = TontineMember.objects.filter(tontine=tontine, user=member).first()
-                if member_ship_obj and member_ship_obj.joined_at.date() > effective_start_date:
-                    effective_start_date = member_ship_obj.joined_at.date()
-
-                # Calculate the next expected contribution date
-                expected_next_contribution_date = effective_start_date
-                if last_contribution:
-                    # Start calculating from the last contribution date
-                    current_calc_date = last_contribution.date.date()
-                else:
-                    # If no contributions, start from the effective start date
-                    current_calc_date = effective_start_date
-
-                while expected_next_contribution_date <= date.today():
-                    if tontine.frequency == 'daily':
-                        expected_next_contribution_date = current_calc_date + timedelta(days=1)
-                    elif tontine.frequency == 'weekly':
-                        expected_next_contribution_date = current_calc_date + timedelta(weeks=1)
-                    elif tontine.frequency == 'monthly':
-                        expected_next_contribution_date = current_calc_date + relativedelta(months=1)
+                today = date.today()
+                current_period_start = None
+                
+                if tontine.frequency == 'weekly':
+                    days_since_tontine_start = (today - tontine.start_date).days
+                    current_week_offset = (days_since_tontine_start // 7) * 7
+                    current_period_start = tontine.start_date + timedelta(days=current_week_offset)
+                elif tontine.frequency == 'monthly':
+                    tontine_start_day = tontine.start_date.day
+                    if today.day >= tontine_start_day:
+                        current_period_start = date(today.year, today.month, tontine_start_day)
                     else:
-                        break # Unknown frequency
+                        current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
+                
+                if current_period_start and today > current_period_start:
+                    # Check if a contribution exists within the current period (from current_period_start up to today)
+                    contribution_in_current_period = Contribution.objects.filter(
+                        tontine=tontine,
+                        member=member,
+                        date__date__gte=current_period_start,
+                        date__date__lte=today
+                    ).exists()
                     
-                    if expected_next_contribution_date <= date.today():
+                    if not contribution_in_current_period:
                         is_late = True
-                        current_calc_date = expected_next_contribution_date # Move to next period
-                    else:
-                        is_late = False # Not late yet for the next one
-                        break
 
             members_status.append({
                 'member_id': member.id,
