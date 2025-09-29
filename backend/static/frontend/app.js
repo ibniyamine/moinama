@@ -428,11 +428,22 @@ const App = (() => {
     const tbody = $('#transactionsTable tbody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chargement...</td></tr>';
     try {
+      // Ensure state.tontines is populated
+      if (!state.tontines || state.tontines.length === 0) {
+        state.tontines = await Api.getTontines();
+        console.log('Fetched tontines:', state.tontines);
+      }
+
       const contributions = await Api.getContributions();
-      // const withdrawals = await Api.getWithdrawals(); // Feature skipped for now
+      console.log('Fetched contributions:', contributions);
 
       const allTransactions = [
-        ...contributions.map(tx => ({ ...tx, type: 'Contribution', member_name: tx.member_email, tontine_name: state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A' })),
+        ...contributions.map(tx => {
+          console.log('Processing transaction:', tx);
+          const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
+          console.log(`Tontine ID: ${tx.tontine}, Found Name: ${tontineName}`);
+          return { ...tx, type: 'Contribution', member_name: tx.member_email, tontine_name: tontineName };
+        }),
         // ...withdrawals.map(tx => ({ ...tx, type: 'Retrait', member_name: tx.beneficiary_email, tontine_name: state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A' })),
       ];
 
