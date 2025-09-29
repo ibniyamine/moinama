@@ -94,7 +94,7 @@ class ContributionDetailView(generics.RetrieveUpdateDestroyAPIView):
                 raise PermissionDenied("Only the tontine owner can confirm contributions.")
         
         tontine = serializer.validated_data.get('tontine', serializer.instance.tontine)
-        if serializer.validated_data.get('amount') != tontine.amount:
+        if 'amount' in serializer.validated_data and serializer.validated_data.get('amount') != tontine.amount:
             raise ValidationError(f"Contribution amount must be exactly {tontine.amount}.")
 
         serializer.save()
@@ -210,6 +210,7 @@ class TontineContributionStatusView(APIView):
                 'member_email': member.email,
                 'last_contribution_date': last_contribution.date.date() if last_contribution else None,
                 'last_contribution_amount': last_contribution.amount if last_contribution else None,
+                'last_contribution_id': last_contribution.id if last_contribution else None,
                 'is_confirmed': last_contribution.is_confirmed if last_contribution else False,
                 'is_late': is_late,
                 'expected_contribution_amount': tontine.amount,
