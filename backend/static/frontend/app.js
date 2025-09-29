@@ -572,7 +572,10 @@ const App = (() => {
         const contributions = await Api.getContributions(params);
         allTransactions.push(...contributions.map(tx => {
           const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
-          return { ...tx, type: 'Contribution', member_name: tx.member_email, tontine_name: tontineName };
+          const fullName = `${tx.member.first_name || ''} ${tx.member.last_name || ''}`.trim();
+          const displayName = fullName || tx.member.email;
+          const contactInfo = tx.member.phone || tx.member.email;
+          return { ...tx, type: 'Contribution', member_name: displayName, member_contact: contactInfo, tontine_name: tontineName };
         }));
       }
 
@@ -580,7 +583,10 @@ const App = (() => {
         const withdrawals = await Api.getWithdrawals(params);
         allTransactions.push(...withdrawals.map(tx => {
           const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
-          return { ...tx, type: 'Retrait', member_name: tx.beneficiary_email, tontine_name: tontineName };
+          const fullName = `${tx.beneficiary.first_name || ''} ${tx.beneficiary.last_name || ''}`.trim();
+          const displayName = fullName || tx.beneficiary.email;
+          const contactInfo = tx.beneficiary.phone || tx.beneficiary.email;
+          return { ...tx, type: 'Retrait', member_name: displayName, member_contact: contactInfo, tontine_name: tontineName };
         }));
       }
 
@@ -601,7 +607,7 @@ const App = (() => {
           <tr>
             <td>${date}</td>
             <td>${tx.type}</td>
-            <td>${tx.member_name}</td>
+            <td>${tx.member_name} <small class="text-muted">(${tx.member_contact})</small></td>
             <td>${tx.tontine_name}</td>
             <td class="text-end ${amountClass}">${sign} ${formatCurrency(tx.amount)}</td>
           </tr>

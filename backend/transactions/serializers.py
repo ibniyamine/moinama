@@ -1,14 +1,15 @@
 from rest_framework import serializers
 from .models import Contribution, Withdrawal
+from accounts.serializers import UserSerializer
 
 
 class ContributionSerializer(serializers.ModelSerializer):
-    member_email = serializers.ReadOnlyField(source='member.email')
+    member = UserSerializer(read_only=True)
 
     class Meta:
         model = Contribution
-        fields = ['id', 'tontine', 'member', 'member_email', 'amount', 'date', 'note', 'is_confirmed']
-        read_only_fields = ['id', 'date', 'member_email', 'member']
+        fields = ['id', 'tontine', 'member', 'amount', 'date', 'note', 'is_confirmed']
+        read_only_fields = ['id', 'date']
 
     def create(self, validated_data):
         request = self.context.get('request')
@@ -18,12 +19,12 @@ class ContributionSerializer(serializers.ModelSerializer):
 
 
 class WithdrawalSerializer(serializers.ModelSerializer):
-    beneficiary_email = serializers.ReadOnlyField(source='beneficiary.email')
+    beneficiary = UserSerializer(read_only=True)
 
     class Meta:
         model = Withdrawal
-        fields = ['id', 'tontine', 'beneficiary', 'beneficiary_email', 'amount', 'date', 'note']
-        read_only_fields = ['id', 'date', 'beneficiary_email']
+        fields = ['id', 'tontine', 'beneficiary', 'amount', 'date', 'note']
+        read_only_fields = ['id', 'date']
 
     def create(self, validated_data):
         request = self.context.get('request')
