@@ -33,7 +33,8 @@ const Api = (() => {
       let errorMessage = errorData.detail;
       if (!errorMessage) {
           const fieldErrors = Object.entries(errorData).map(([field, messages]) => {
-              return `${field}: ${messages.join(' ')}`;
+              const msgArray = Array.isArray(messages) ? messages : [messages];
+              return `${field}: ${msgArray.join(' ')}`;
           });
           errorMessage = fieldErrors.join('; ');
       }
@@ -259,6 +260,14 @@ const App = (() => {
       state.tontines.forEach(t => {
         const col = document.createElement('div');
         col.className = 'col-12 col-md-6 col-xl-4';
+
+        let contributeButtonHtml = '';
+        if (t.has_contributed_this_period) {
+          contributeButtonHtml = '<button class="btn btn-sm btn-outline-primary" disabled><i class="bi bi-check-circle"></i> Déjà cotisé</button>';
+        } else {
+          contributeButtonHtml = `<button class="btn btn-sm btn-outline-primary" data-action="contribute" data-id="${t.id}"><i class="bi bi-plus-circle"></i> Cotiser</button>`;
+        }
+
         col.innerHTML = `
           <div class="card h-100">
             <div class="card-body d-flex flex-column">
@@ -268,7 +277,7 @@ const App = (() => {
               </div>
               <div class="small text-muted mb-2">Montant: <strong>${formatCurrency(t.amount)}</strong> · ${translateFrequency(t.frequency)}</div>
               <div class="mt-auto d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary" data-action="contribute" data-id="${t.id}"><i class="bi bi-plus-circle"></i> Cotiser</button>
+                ${contributeButtonHtml}
                 <button class="btn btn-sm btn-outline-info" data-action="view" data-id="${t.id}"><i class="bi bi-eye"></i> Voir plus</button>
               </div>
             </div>
@@ -358,6 +367,33 @@ const App = (() => {
       $('#addMemberBtn').onclick = () => handleAddMember(tontine);
       $('#editTontineBtn').onclick = () => handleEditTontine(tontine); // Bind edit button
       $('#deleteTontineBtn').onclick = () => handleDeleteTontine(tontine); // Bind delete button
+
+      // Handle Contribute button state
+      const contributeButton = $('button[data-action="contribute"]'); // This button is in the tontine list, not detail
+      const contributeModalButton = $('#confirmContributeBtn'); // This is the button inside the modal
+
+      if (contributionStatus.current_user_has_contributed_this_period) {
+        // If the current user has contributed, disable the button in the modal
+        if (contributeModalButton) {
+          contributeModalButton.disabled = true;
+          contributeModalButton.textContent = 'Déjà cotisé ce mois/semaine';
+        }
+        // Also disable the contribute button in the tontine list if it's visible
+        // (though this function is for detail view, good to be safe)
+        if (contributeButton) {
+          contributeButton.disabled = true;
+          contributeButton.textContent = 'Déjà cotisé';
+        }
+      } else {
+        if (contributeModalButton) {
+          contributeModalButton.disabled = false;
+          contributeModalButton.textContent = 'Confirmer la contribution';
+        }
+        if (contributeButton) {
+          contributeButton.disabled = false;
+          contributeButton.innerHTML = '<i class="bi bi-plus-circle"></i> Cotiser';
+        }
+      }
 
       // KPIs
       const totalContributed = contributionStatus.members_status.reduce((sum, m) => sum + (m.last_contribution_amount || 0), 0);
@@ -638,8 +674,10 @@ const App = (() => {
       if (contributeBtn) {
         const id = contributeBtn.getAttribute('data-id');
         const tontine = state.tontines.find(t => t.id == id);
-        if (tontine) {
+        if (tontine && !tontine.has_contributed_this_period) {
           handleContribute(tontine);
+        } else if (tontine && tontine.has_contributed_this_period) {
+          notify('Information', 'Vous avez déjà cotisé à cette tontine pour la période actuelle.');
         }
       }
     });

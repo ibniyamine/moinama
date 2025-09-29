@@ -55,6 +55,9 @@ class TontineViewSet(viewsets.ModelViewSet):
             Q(owner=user) | Q(memberships__user=user, memberships__is_active=True)
         ).distinct()
 
+    def get_serializer_context(self):
+        return {'request': self.request}
+
     def perform_create(self, serializer):
         tontine = serializer.save(owner=self.request.user)
         TontineMember.objects.create(tontine=tontine, user=self.request.user, role="admin")

@@ -38,14 +38,45 @@ class ContributionListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         tontine = serializer.validated_data['tontine']
         member = self.request.user
+        today = date.today()
 
-        # Check if the user is a member of the tontine
-        if not TontineMember.objects.filter(tontine=tontine, user=member, is_active=True).exists():
-            raise ValidationError("You are not an active member of this tontine.")
+        # Check if the user is a member of the tontine or the owner
+        if not (TontineMember.objects.filter(tontine=tontine, user=member, is_active=True).exists() or tontine.owner == member):
+            raise ValidationError("You are not an active member or owner of this tontine.")
 
         # Validate contribution amount against tontine's expected amount
         if serializer.validated_data['amount'] != tontine.amount:
             raise ValidationError(f"Contribution amount must be exactly {tontine.amount}.")
+
+        # --- Frequency-based contribution check ---
+        current_period_start = None
+        if tontine.frequency == 'weekly':
+            # Calculate the start of the current week relative to tontine's start_date
+            days_since_tontine_start = (today - tontine.start_date).days
+            current_week_offset = (days_since_tontine_start // 7) * 7
+            current_period_start = tontine.start_date + timedelta(days=current_week_offset)
+        elif tontine.frequency == 'monthly':
+            # Calculate the start of the current month relative to tontine's start_date day
+            tontine_start_day = tontine.start_date.day
+            if today.day >= tontine_start_day:
+                current_period_start = date(today.year, today.month, tontine_start_day)
+            else:
+                # If today's day is before the tontine's start day, it means we are in the previous period
+                # e.g., tontine starts on 15th, today is 10th -> current period started on 15th of previous month
+                current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
+
+        if current_period_start:
+            # Check if the member has already contributed in the current period
+            existing_contribution_in_period = Contribution.objects.filter(
+                tontine=tontine,
+                member=member,
+                date__date__gte=current_period_start,
+                date__date__lte=today # Ensure it's up to today
+            ).exists()
+
+            if existing_contribution_in_period:
+                raise ValidationError(f"You have already contributed to this tontine for the current {tontine.frequency} period.")
+        # --- End frequency-based contribution check ---
 
         serializer.save(member=member)
 
@@ -247,10 +278,35 @@ class TontineContributionStatusView(APIView):
                 'expected_contribution_amount': tontine.amount,
             })
         
+        # Determine if the current user has contributed in the current period
+        current_user_has_contributed_this_period = False
+        if request.user.is_authenticated:
+            today = date.today()
+            current_period_start = None
+            if tontine.frequency == 'weekly':
+                days_since_tontine_start = (today - tontine.start_date).days
+                current_week_offset = (days_since_tontine_start // 7) * 7
+                current_period_start = tontine.start_date + timedelta(days=current_week_offset)
+            elif tontine.frequency == 'monthly':
+                tontine_start_day = tontine.start_date.day
+                if today.day >= tontine_start_day:
+                    current_period_start = date(today.year, today.month, tontine_start_day)
+                else:
+                    current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
+            
+            if current_period_start:
+                current_user_has_contributed_this_period = Contribution.objects.filter(
+                    tontine=tontine,
+                    member=request.user,
+                    date__date__gte=current_period_start,
+                    date__date__lte=today
+                ).exists()
+
         return Response({
             'tontine_id': tontine.id,
             'tontine_name': tontine.name,
-            'members_status': members_status
+            'members_status': members_status,
+            'current_user_has_contributed_this_period': current_user_has_contributed_this_period,
         }, status=status.HTTP_200_OK)
 
 
