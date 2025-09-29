@@ -72,6 +72,7 @@ const Api = (() => {
       return request(url);
     },
     getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
+    getDashboardStats: () => request('/api/transactions/dashboard-stats/'),
   };
 })();
 
@@ -131,6 +132,65 @@ const App = (() => {
     if (target === 'tontines') renderTontines();
     if (target === 'transactions') renderTransactions();
     if (target === 'me') renderMyDashboard();
+    if (target === 'dashboard') renderDashboardGlobal();
+  }
+
+  let contribChartInstance = null;
+
+  async function renderDashboardGlobal() {
+    try {
+      const stats = await Api.getDashboardStats();
+
+      // Update KPIs
+      $('#kpiTotalContrib').textContent = formatCurrency(stats.total_contributions);
+      $('#kpiWithdrawals').textContent = formatCurrency(stats.total_withdrawals);
+      $('#kpiMembers').textContent = stats.total_members;
+      $('#kpiActiveGroups').textContent = stats.total_active_tontines;
+
+      // Render Contribution Chart
+      const ctx = $('#contribChart').getContext('2d');
+      if (contribChartInstance) {
+        contribChartInstance.destroy();
+      }
+      contribChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: stats.contribution_chart_data.labels,
+          datasets: [{
+            label: 'Contributions',
+            data: stats.contribution_chart_data.data,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // Render Upcoming Payments (currently a placeholder)
+      const upcomingPaymentsList = $('#upcomingPayments');
+      if (stats.upcoming_payments.length === 0) {
+        upcomingPaymentsList.innerHTML = '<div class="list-group-item text-center text-muted">Aucun paiement à venir.</div>';
+      } else {
+        upcomingPaymentsList.innerHTML = stats.upcoming_payments.map(payment => `
+          <div class="list-group-item">
+            ${payment.description} - ${formatCurrency(payment.amount)}
+          </div>
+        `).join('');
+      }
+
+    } catch (error) {
+      console.error('Erreur lors du chargement du tableau de bord global:', error);
+      notify('Erreur', `Impossible de charger les données du tableau de bord: ${error.message}`);
+    }
   }
 
   async function renderMyDashboard() {

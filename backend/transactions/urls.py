@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ContributionListCreateView, ContributionDetailView, WithdrawalListCreateView, WithdrawalDetailView, TontineContributionStatusView
+from .views import ContributionListCreateView, ContributionDetailView, WithdrawalListCreateView, WithdrawalDetailView, TontineContributionStatusView, DashboardGlobalStatsView
 
 urlpatterns = [
     path('contributions/', ContributionListCreateView.as_view(), name='contribution-list-create'),
@@ -7,4 +7,5 @@ urlpatterns = [
     path('withdrawals/', WithdrawalListCreateView.as_view(), name='withdrawal-list-create'),
     path('withdrawals/<int:pk>/', WithdrawalDetailView.as_view(), name='withdrawal-detail'),
     path('tontines/<int:tontine_id>/status/', TontineContributionStatusView.as_view(), name='tontine-contribution-status'),
+    path('dashboard-stats/', DashboardGlobalStatsView.as_view(), name='dashboard-global-stats'),
 ]

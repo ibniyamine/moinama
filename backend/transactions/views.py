@@ -8,7 +8,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-from django.db.models import Q
+from django.db.models import Q, Sum, Count
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class IsTontineOwnerOrReadOnly(permissions.BasePermission):
@@ -71,6 +74,58 @@ class ContributionListCreateView(generics.ListCreateAPIView):
         # If no tontine_id is provided:
         # Show contributions where the user is the member OR the user is the owner of the tontine
         return self.queryset.filter(Q(member=self.request.user) | Q(tontine__owner=self.request.user)).distinct()
+
+
+class DashboardGlobalStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, format=None):
+        # Total Contributions
+        total_contributions = Contribution.objects.aggregate(Sum('amount'))['amount__sum'] or 0
+
+        # Total Withdrawals (assuming a similar model for withdrawals exists)
+        total_withdrawals = Withdrawal.objects.aggregate(Sum('amount'))['amount__sum'] or 0
+
+        # Total Members (unique users across all tontines)
+        total_members = TontineMember.objects.values('user').distinct().count()
+
+        # Total Active Tontines (assuming all tontines are "active" for now, or add an 'is_active' field to Tontine model)
+        total_active_tontines = Tontine.objects.count()
+
+        # Contribution Chart Data (e.g., last 30 days)
+        today = date.today()
+        thirty_days_ago = today - timedelta(days=30)
+        
+        contributions_last_30_days = Contribution.objects.filter(
+            date__date__gte=thirty_days_ago,
+            date__date__lte=today
+        ).extra({'day': "date(date)"}).values('day').annotate(total_amount=Sum('amount')).order_by('day')
+
+        chart_labels = []
+        chart_data = []
+        current_date = thirty_days_ago
+        while current_date <= today:
+            chart_labels.append(current_date.strftime('%Y-%m-%d'))
+            # Find data for the current date, or use 0 if no contributions
+            data_for_day = next((item for item in contributions_last_30_days if item['day'].strftime('%Y-%m-%d') == current_date.strftime('%Y-%m-%d')), None)
+            chart_data.append(data_for_day['total_amount'] if data_for_day else 0)
+            current_date += timedelta(days=1)
+
+        # Upcoming Payments (Placeholder for now, as this requires more complex logic)
+        # This would involve iterating through tontines and their members to determine next expected contribution dates
+        upcoming_payments = [] 
+
+        return Response({
+            'total_contributions': total_contributions,
+            'total_withdrawals': total_withdrawals,
+            'total_members': total_members,
+            'total_active_tontines': total_active_tontines,
+            'contribution_chart_data': {
+                'labels': chart_labels,
+                'data': chart_data,
+            },
+            'upcoming_payments': upcoming_payments,
+        }, status=status.HTTP_200_OK)
 
 
 class ContributionDetailView(generics.RetrieveUpdateDestroyAPIView):
