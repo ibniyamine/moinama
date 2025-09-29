@@ -216,7 +216,7 @@ const App = (() => {
       }
 
       const allContributions = await Api.getContributions();
-      const myContributions = allContributions.filter(tx => tx.member === state.user.id); // Assuming tx.member exists and matches user.id
+      const myContributions = allContributions.filter(tx => tx.member.id === state.user.id); // Assuming tx.member exists and matches user.id
 
       if (!myContributions.length) {
         myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Aucune contribution trouvée.</li>';
