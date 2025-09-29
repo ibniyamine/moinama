@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
+from django.db.models import Q
 
 
 class IsTontineOwnerOrReadOnly(permissions.BasePermission):
@@ -47,20 +48,29 @@ class ContributionListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
+            print(f"[DEBUG] User is not authenticated.")
             return self.queryset.none()
+
+        print(f"[DEBUG] Current User: {self.request.user.get_username()} (ID: {self.request.user.id})")
 
         tontine_id = self.request.query_params.get('tontine_id')
         if tontine_id:
-            # Check if the user is the owner of the tontine
             tontine = get_object_or_404(Tontine, pk=tontine_id)
             if tontine.owner == self.request.user:
                 return self.queryset.filter(tontine=tontine)
             else:
-                # Regular members can only see their own contributions for that tontine
                 return self.queryset.filter(tontine=tontine, member=self.request.user)
         
-        # If no tontine_id is provided, show only the user's own contributions across all tontines
-        return self.queryset.filter(member=self.request.user)
+        # If no tontine_id is provided:
+        # Show contributions where the user is the member OR the user is the owner of the tontine
+        queryset = self.queryset.filter(Q(member=self.request.user) | Q(tontine__owner=self.request.user)).distinct()
+        print(f"[DEBUG] Queryset for user {self.request.user.get_username()}: {[c.id for c in queryset]}")
+        print(f"[DEBUG] Number of contributions in queryset: {queryset.count()}")
+        return queryset
+
+        # If no tontine_id is provided:
+        # Show contributions where the user is the member OR the user is the owner of the tontine
+        return self.queryset.filter(Q(member=self.request.user) | Q(tontine__owner=self.request.user)).distinct()
 
 
 class ContributionDetailView(generics.RetrieveUpdateDestroyAPIView):
