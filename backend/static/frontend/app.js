@@ -433,10 +433,10 @@ const App = (() => {
         if (isOwner && mStatus.status === 'pending' && mStatus.last_contribution_id) {
             actionButtons = `
                 <div class="btn-group btn-group-sm" role="group">
-                    <button class="btn btn-success" data-action="mark-paid" data-contribution-id="${mStatus.last_contribution_id}">
+                    <button class="btn btn-outline-success" data-action="mark-paid" data-contribution-id="${mStatus.last_contribution_id}">
                         <i class="bi bi-check-circle"></i> Payer
                     </button>
-                    <button class="btn btn-danger" data-action="mark-unpaid" data-contribution-id="${mStatus.last_contribution_id}">
+                    <button class="btn btn-outline-danger" data-action="mark-unpaid" data-contribution-id="${mStatus.last_contribution_id}">
                         <i class="bi bi-x-circle"></i> Non payé
                     </button>
                 </div>
