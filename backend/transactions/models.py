@@ -9,7 +9,12 @@ class Contribution(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateTimeField(auto_now_add=True)
     note = models.CharField(max_length=255, blank=True)
-    is_confirmed = models.BooleanField(default=False)
+    STATUS_CHOICES = (
+        ('pending', 'En attente'),
+        ('paid', 'Payé'),
+        ('unpaid', 'Non payé'),
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
         return f"Contribution {self.amount} - {self.member} -> {self.tontine}"

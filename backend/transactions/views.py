@@ -30,55 +30,10 @@ class IsTontineOwnerOrReadOnly(permissions.BasePermission):
         return obj.tontine.owner == request.user
 
 
-class ContributionListCreateView(generics.ListCreateAPIView):
+class ContributionListCreateView(generics.ListAPIView):
     queryset = Contribution.objects.all()
     serializer_class = ContributionSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        tontine = serializer.validated_data['tontine']
-        member = self.request.user
-        today = date.today()
-
-        # Check if the user is a member of the tontine or the owner
-        if not (TontineMember.objects.filter(tontine=tontine, user=member, is_active=True).exists() or tontine.owner == member):
-            raise ValidationError("You are not an active member or owner of this tontine.")
-
-        # Validate contribution amount against tontine's expected amount
-        if serializer.validated_data['amount'] != tontine.amount:
-            raise ValidationError(f"Contribution amount must be exactly {tontine.amount}.")
-
-        # --- Frequency-based contribution check ---
-        current_period_start = None
-        if tontine.frequency == 'weekly':
-            # Calculate the start of the current week relative to tontine's start_date
-            days_since_tontine_start = (today - tontine.start_date).days
-            current_week_offset = (days_since_tontine_start // 7) * 7
-            current_period_start = tontine.start_date + timedelta(days=current_week_offset)
-        elif tontine.frequency == 'monthly':
-            # Calculate the start of the current month relative to tontine's start_date day
-            tontine_start_day = tontine.start_date.day
-            if today.day >= tontine_start_day:
-                current_period_start = date(today.year, today.month, tontine_start_day)
-            else:
-                # If today's day is before the tontine's start day, it means we are in the previous period
-                # e.g., tontine starts on 15th, today is 10th -> current period started on 15th of previous month
-                current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
-
-        if current_period_start:
-            # Check if the member has already contributed in the current period
-            existing_contribution_in_period = Contribution.objects.filter(
-                tontine=tontine,
-                member=member,
-                date__date__gte=current_period_start,
-                date__date__lte=today # Ensure it's up to today
-            ).exists()
-
-            if existing_contribution_in_period:
-                raise ValidationError(f"You have already contributed to this tontine for the current {tontine.frequency} period.")
-        # --- End frequency-based contribution check ---
-
-        serializer.save(member=member)
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
@@ -139,10 +94,10 @@ class ContributionDetailView(generics.RetrieveUpdateDestroyAPIView):
         if 'member' in serializer.validated_data and serializer.validated_data['member'] != serializer.instance.member:
             raise ValidationError("Cannot change member for an existing contribution.")
         
-        # Only tontine owner can change is_confirmed status
-        if 'is_confirmed' in serializer.validated_data:
+        # Only tontine owner can change status
+        if 'status' in serializer.validated_data:
             if self.request.user != serializer.instance.tontine.owner:
-                raise PermissionDenied("Only the tontine owner can confirm contributions.")
+                raise PermissionDenied("Only the tontine owner can change the contribution status.")
         
         tontine = serializer.validated_data.get('tontine', serializer.instance.tontine)
         if 'amount' in serializer.validated_data and serializer.validated_data.get('amount') != tontine.amount:
@@ -224,8 +179,45 @@ class TontineContributionStatusView(APIView):
         tontine = get_object_or_404(Tontine, pk=tontine_id)
 
         # Check if the user is the owner or a member of the tontine
-        if not (tontine.owner == request.user or TontineMember.objects.filter(tontine=tontine, user=request.user, is_active=True).exists()):
+        is_owner = tontine.owner == request.user
+        is_member = TontineMember.objects.filter(tontine=tontine, user=request.user, is_active=True).exists()
+        if not (is_owner or is_member):
             raise PermissionDenied("You do not have permission to view this tontine's contribution status.")
+
+        # --- Auto-generate contributions for the current period if user is owner ---
+        if is_owner and tontine.start_date:
+            today = date.today()
+            current_period_start = None
+            if tontine.frequency == 'weekly':
+                days_since_start = (today - tontine.start_date).days
+                current_week_offset = (days_since_start // 7) * 7
+                current_period_start = tontine.start_date + timedelta(days=current_week_offset)
+            elif tontine.frequency == 'monthly':
+                start_day = tontine.start_date.day
+                current_period_start = date(today.year, today.month, start_day)
+                if today.day < start_day:
+                    current_period_start -= relativedelta(months=1)
+            else: # daily
+                current_period_start = today
+
+            if current_period_start:
+                active_memberships = tontine.memberships.filter(is_active=True)
+                for membership in active_memberships:
+                    has_existing_contribution = Contribution.objects.filter(
+                        tontine=tontine,
+                        member=membership.user,
+                        date__gte=current_period_start
+                    ).exists()
+
+                    if not has_existing_contribution:
+                        Contribution.objects.create(
+                            tontine=tontine,
+                            member=membership.user,
+                            amount=tontine.amount,
+                            status='pending',
+                            date=today
+                        )
+        # --- End auto-generation ---
 
         members_status = []
         for member_ship in tontine.memberships.all():
@@ -266,7 +258,7 @@ class TontineContributionStatusView(APIView):
                 'last_contribution_date': last_contribution.date.date() if last_contribution else None,
                 'last_contribution_amount': last_contribution.amount if last_contribution else None,
                 'last_contribution_id': last_contribution.id if last_contribution else None,
-                'is_confirmed': last_contribution.is_confirmed if last_contribution else False,
+                'status': last_contribution.status if last_contribution else 'unpaid',
                 'is_late': is_late,
                 'expected_contribution_amount': tontine.amount,
             })

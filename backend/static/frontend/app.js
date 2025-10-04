@@ -62,7 +62,6 @@ const Api = (() => {
     createTontine: (data) => request('/api/tontines/', 'POST', data),
     getTontineDetail: (id) => request(`/api/tontines/${id}/`),
     getTontineMembers: (id) => request(`/api/tontines/${id}/members/`),
-    // Corrected URL and data format
     addTontineMember: (tontineId, userId) => request(`/api/tontines/${tontineId}/add-member/`, 'POST', { user_id: userId }),
     deleteTontine: (id) => request(`/api/tontines/${id}/`, 'DELETE'),
     updateTontine: (id, data) => request(`/api/tontines/${id}/`, 'PATCH', data),
@@ -261,13 +260,6 @@ const App = (() => {
         const col = document.createElement('div');
         col.className = 'col-12 col-md-6 col-xl-4';
 
-        let contributeButtonHtml = '';
-        if (t.has_contributed_this_period) {
-          contributeButtonHtml = '<button class="btn btn-sm btn-outline-primary" disabled><i class="bi bi-check-circle"></i> Déjà cotisé</button>';
-        } else {
-          contributeButtonHtml = `<button class="btn btn-sm btn-outline-primary" data-action="contribute" data-id="${t.id}"><i class="bi bi-plus-circle"></i> Cotiser</button>`;
-        }
-
         col.innerHTML = `
           <div class="card h-100">
             <div class="card-body d-flex flex-column">
@@ -277,7 +269,6 @@ const App = (() => {
               </div>
               <div class="small text-muted mb-2">Montant: <strong>${formatCurrency(t.amount)}</strong> · ${translateFrequency(t.frequency)}</div>
               <div class="mt-auto d-flex gap-2">
-                ${contributeButtonHtml}
                 <button class="btn btn-sm btn-outline-info" data-action="view" data-id="${t.id}"><i class="bi bi-eye"></i> Voir plus</button>
               </div>
             </div>
@@ -417,19 +408,40 @@ const App = (() => {
         const contactInfo = member.user_phone || member.user_email;
 
         let statusHtml = '';
-        if (mStatus.is_late) {
-          statusHtml = '<span class="badge bg-danger">En retard</span>';
-        } else if (mStatus.is_confirmed) {
-          statusHtml = '<span class="badge bg-success">Confirmé</span>';
-        } else if (mStatus.last_contribution_date) {
-          statusHtml = '<span class="badge bg-warning">En attente</span>';
-        } else {
-          statusHtml = '<span class="badge bg-info">Pas encore cotisé</span>';
+        // The backend now sends status: 'pending', 'paid', or 'unpaid'.
+        // 'unpaid' is also used when no contribution has been made for the period.
+        switch (mStatus.status) {
+            case 'paid':
+                statusHtml = '<span class="badge bg-success">Payé</span>';
+                break;
+            case 'pending':
+                statusHtml = '<span class="badge bg-warning">En attente</span>';
+                break;
+            case 'unpaid':
+                statusHtml = '<span class="badge bg-danger">Non payé</span>';
+                break;
+            default:
+                statusHtml = '<span class="badge bg-secondary">Inconnu</span>';
+        }
+
+        if (mStatus.is_late && mStatus.status !== 'paid') {
+            statusHtml += ' <span class="badge bg-danger">En retard</span>';
         }
 
         const isOwner = state.user && tontine.owner === state.user.id;
-        const confirmButton = isOwner && mStatus.last_contribution_date && !mStatus.is_confirmed ?
-          `<button class="btn btn-sm btn-success" data-action="confirm-contribution" data-contribution-id="${mStatus.last_contribution_id}"><i class="bi bi-check-circle"></i> Confirmer</button>` : '';
+        let actionButtons = '';
+        if (isOwner && mStatus.status === 'pending' && mStatus.last_contribution_id) {
+            actionButtons = `
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-success" data-action="mark-paid" data-contribution-id="${mStatus.last_contribution_id}">
+                        <i class="bi bi-check-circle"></i> Payer
+                    </button>
+                    <button class="btn btn-danger" data-action="mark-unpaid" data-contribution-id="${mStatus.last_contribution_id}">
+                        <i class="bi bi-x-circle"></i> Non payé
+                    </button>
+                </div>
+            `;
+        }
 
         return `
         <tr>
@@ -440,26 +452,35 @@ const App = (() => {
             ${mStatus.last_contribution_amount ? `<br><small class="text-muted">${formatCurrency(mStatus.last_contribution_amount)} le ${mStatus.last_contribution_date}</small>` : ''}
           </td>
           <td class="text-end">
-            ${confirmButton}
+            ${actionButtons}
           </td>
         </tr>
       `;
       }).join('');
 
-      // Add event listener for confirm contribution buttons
-      tbody.querySelectorAll('button[data-action="confirm-contribution"]').forEach(button => {
-        button.addEventListener('click', async (e) => {
-          const contributionId = e.target.getAttribute('data-contribution-id');
-          if (contributionId) {
-            try {
-              await Api.patch(`/api/transactions/contributions/${contributionId}/`, { is_confirmed: true });
-              notify('Succès', 'Contribution confirmée.');
-              renderTontineDetail(tontine.id); // Refresh view
-            } catch (error) {
-              console.error('Erreur lors de la confirmation:', error);
-              notify('Erreur', `Impossible de confirmer la contribution: ${error.message}`);
-            }
-          }
+      // --- Event Listeners for new status buttons ---
+      const updateContributionStatus = async (contributionId, newStatus) => {
+        try {
+            await Api.patch(`/api/transactions/contributions/${contributionId}/`, { status: newStatus });
+            notify('Succès', `Contribution mise à jour: ${newStatus}.`);
+            renderTontineDetail(tontine.id); // Refresh view
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du statut:', error);
+            notify('Erreur', `Impossible de mettre à jour: ${error.message}`);
+        }
+      };
+
+      tbody.querySelectorAll('button[data-action="mark-paid"]').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const contributionId = e.currentTarget.getAttribute('data-contribution-id');
+          if (contributionId) updateContributionStatus(contributionId, 'paid');
+        });
+      });
+
+      tbody.querySelectorAll('button[data-action="mark-unpaid"]').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const contributionId = e.currentTarget.getAttribute('data-contribution-id');
+          if (contributionId) updateContributionStatus(contributionId, 'unpaid');
         });
       });
 
