@@ -387,9 +387,9 @@ const App = (() => {
       }
 
       // KPIs
-      const totalContributed = contributionStatus.members_status.reduce((sum, m) => sum + (m.last_contribution_amount || 0), 0);
+      const totalContributed = contributionStatus.members_status.reduce((sum, m) => m.status === 'paid' ? sum + (m.last_contribution_amount || 0) : sum, 0);
       const lateMembersCount = contributionStatus.members_status.filter(m => m.is_late).length;
-      const participatingMembersCount = contributionStatus.members_status.filter(m => m.last_contribution_date !== null).length;
+      const participatingMembersCount = contributionStatus.members_status.filter(m => m.status === 'paid').length;
       const participationRate = members.length > 0 ? (participatingMembersCount / members.length * 100).toFixed(0) : 0;
 
       $('#kpiTonMembers').textContent = members.length;
