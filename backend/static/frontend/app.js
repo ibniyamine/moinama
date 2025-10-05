@@ -521,12 +521,46 @@ const App = (() => {
         });
       });
 
-      // --- Draw winner button logic ---
+      // Determine if the current user is the tontine owner
+      const isOwner = state.user && tontine.owner === state.user.id;
+
+      // Handle visibility of owner-specific buttons
+      const editTontineBtn = $('#editTontineBtn');
+      const deleteTontineBtn = $('#deleteTontineBtn');
+      const addMemberBtn = $('#addMemberBtn');
       const drawWinnerBtn = $('#drawWinnerBtn');
+      const validateRoundBtn = $('#validateRoundBtn');
+
+      if (isOwner) {
+        editTontineBtn.classList.remove('d-none');
+        deleteTontineBtn.classList.remove('d-none');
+        addMemberBtn.classList.remove('d-none');
+        validateRoundBtn.classList.remove('d-none'); // Show validate button for owner
+      } else {
+        editTontineBtn.classList.add('d-none');
+        deleteTontineBtn.classList.add('d-none');
+        addMemberBtn.classList.add('d-none');
+        drawWinnerBtn.classList.add('d-none'); // Ensure draw button is hidden for non-owners
+        validateRoundBtn.classList.add('d-none'); // Hide validate button for non-owners
+      }
+
+      // Bind owner-specific button actions only if owner
+      if (isOwner) {
+        editTontineBtn.onclick = () => handleEditTontine(tontine);
+        deleteTontineBtn.onclick = () => handleDeleteTontine(tontine);
+        addMemberBtn.onclick = () => handleAddMember(tontine);
+        // drawWinnerBtn.onclick logic will be handled below
+      }
+
+      // --- Draw winner button logic ---
+      // This logic already handles d-none, but we need to ensure it's only shown if isOwner is true
+      // The initial d-none for drawWinnerBtn is set above if not owner.
+      // So, we only need to add the onclick handler if isOwner and conditions are met.
+      // The drawWinnerBtn element is already defined above.
       const allPaid = contributionStatus.members_status.every(m => m.status === 'paid');
       const roundsLeft = contributionStatus.total_rounds > contributionStatus.completed_rounds;
 
-      if (allPaid && roundsLeft) {
+      if (isOwner && allPaid && roundsLeft) { // Only show if owner and conditions met
         drawWinnerBtn.classList.remove('d-none');
         drawWinnerBtn.onclick = async () => {
           try {
@@ -537,7 +571,7 @@ const App = (() => {
           }
         };
       } else {
-        drawWinnerBtn.classList.add('d-none');
+        drawWinnerBtn.classList.add('d-none'); // Ensure it's hidden if not owner or conditions not met
       }
 
     } catch (error) {
