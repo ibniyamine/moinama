@@ -92,6 +92,10 @@ class TontineViewSet(viewsets.ModelViewSet):
         if not current_period_start:
             return Response({'error': 'Impossible de déterminer la période de contribution actuelle.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if a withdrawal has already occurred for the current period
+        if Withdrawal.objects.filter(tontine=tontine, date__gte=current_period_start).exists():
+            return Response({'error': 'Un tirage au sort a déjà eu lieu pour la période actuelle.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Check if all contributions for the current round are paid
         active_members = tontine.memberships.filter(is_active=True)
         contributions_in_period = Contribution.objects.filter(tontine=tontine, date__gte=current_period_start)
