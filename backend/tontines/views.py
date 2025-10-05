@@ -5,9 +5,11 @@ from rest_framework.response import Response
 from .models import Tontine, TontineMember
 from .serializers import TontineSerializer, TontineMemberSerializer, TontineMemberAddSerializer
 from django.contrib.auth import get_user_model
-from transactions.models import Contribution
+from transactions.models import Contribution, Withdrawal
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
+import random
+from django.db.models import Sum
 
 User = get_user_model()
 
@@ -64,6 +66,61 @@ class TontineViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         tontine = serializer.save(owner=self.request.user)
         TontineMember.objects.create(tontine=tontine, user=self.request.user, role="admin")
+
+    @action(detail=True, methods=['post'], url_path='draw-winner', permission_classes=[permissions.IsAuthenticated, IsTontineAdminOrOwner])
+    def draw_winner(self, request, pk=None):
+        tontine = self.get_object()
+        today = date.today()
+
+        if not tontine.start_date:
+            return Response({'error': 'La tontine n\'a pas de date de début.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Determine the current contribution period
+        current_period_start = None
+        if tontine.frequency == 'weekly':
+            days_since_start = (today - tontine.start_date).days
+            current_week_offset = (days_since_start // 7) * 7
+            current_period_start = tontine.start_date + timedelta(days=current_week_offset)
+        elif tontine.frequency == 'monthly':
+            start_day = tontine.start_date.day
+            current_period_start = date(today.year, today.month, start_day)
+            if today.day < start_day:
+                current_period_start -= relativedelta(months=1)
+        else: # daily
+            current_period_start = today
+
+        if not current_period_start:
+            return Response({'error': 'Impossible de déterminer la période de contribution actuelle.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if all contributions for the current round are paid
+        active_members = tontine.memberships.filter(is_active=True)
+        contributions_in_period = Contribution.objects.filter(tontine=tontine, date__gte=current_period_start)
+        paid_contributions = contributions_in_period.filter(status='paid')
+
+        if paid_contributions.count() < active_members.count():
+            return Response({'error': 'Toutes les cotisations pour ce tour n\'ont pas été marquées comme payées.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Identify eligible members (those who haven't won yet)
+        previous_winners = User.objects.filter(withdrawals__tontine=tontine)
+        eligible_members = [m.user for m in active_members if m.user not in previous_winners]
+
+        if not eligible_members:
+            return Response({'error': 'Tous les membres ont déjà reçu leur paiement.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Draw winner
+        winner = random.choice(eligible_members)
+
+        # Create withdrawal
+        payout_amount = paid_contributions.aggregate(total=Sum('amount'))['total'] or 0
+        Withdrawal.objects.create(
+            tontine=tontine,
+            beneficiary=winner,
+            amount=payout_amount,
+            note=f"Paiement du tour du {today.strftime('%Y-%m-%d')}"
+        )
+
+        winner_name = f"{winner.first_name} {winner.last_name}".strip() or winner.email
+        return Response({'message': f'Le gagnant est {winner_name} ! Le retrait a été enregistré.', 'winner_name': winner_name}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated, IsTontineMember])
     def members(self, request, pk=None):

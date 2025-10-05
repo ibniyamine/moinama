@@ -64,6 +64,7 @@ const Api = (() => {
     getTontineMembers: (id) => request(`/api/tontines/${id}/members/`),
     addTontineMember: (tontineId, userId) => request(`/api/tontines/${tontineId}/add-member/`, 'POST', { user_id: userId }),
     deleteTontine: (id) => request(`/api/tontines/${id}/`, 'DELETE'),
+    drawWinner: (tontineId) => request(`/api/tontines/${tontineId}/draw-winner/`, 'POST'),
     updateTontine: (id, data) => request(`/api/tontines/${id}/`, 'PATCH', data),
     createContribution: (data) => request('/api/transactions/contributions/', 'POST', data),
     getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
@@ -390,11 +391,22 @@ const App = (() => {
       const totalContributed = contributionStatus.members_status.reduce((sum, m) => m.status === 'paid' ? sum + (m.last_contribution_amount || 0) : sum, 0);
       const lateMembersCount = contributionStatus.members_status.filter(m => m.is_late).length;
       const participatingMembersCount = contributionStatus.members_status.filter(m => m.status === 'paid').length;
-      const participationRate = members.length > 0 ? (participatingMembersCount / members.length * 100).toFixed(0) : 0;
+
+      // Progress Bar for Rounds & Round Banner
+      const { completed_rounds, total_rounds, last_winner_name } = contributionStatus;
+      const progressPercent = total_rounds > 0 ? (completed_rounds / total_rounds) * 100 : 0;
+      $('#tonProgressBar').style.width = `${progressPercent}%`;
+      $('#tonProgressBarText').textContent = `${completed_rounds} sur ${total_rounds} tours complétés`;
+
+      const roundBanner = $('#tonRoundBanner');
+      if (last_winner_name) {
+        roundBanner.innerHTML = `Tour ${completed_rounds} – Prenant : <strong>${last_winner_name}</strong>`;
+      } else {
+        roundBanner.innerHTML = 'Le premier tour n\'a pas encore été tiré.';
+      }
 
       $('#kpiTonMembers').textContent = members.length;
       $('#kpiTonTotal').textContent = formatCurrency(totalContributed);
-      $('#kpiTonRate').textContent = `${participationRate}%`;
       $('#kpiTonLate').textContent = lateMembersCount;
 
       // Members table
@@ -483,6 +495,25 @@ const App = (() => {
           if (contributionId) updateContributionStatus(contributionId, 'unpaid');
         });
       });
+
+      // --- Draw winner button logic ---
+      const drawWinnerBtn = $('#drawWinnerBtn');
+      const allPaid = contributionStatus.members_status.every(m => m.status === 'paid');
+      const roundsLeft = contributionStatus.total_rounds > contributionStatus.completed_rounds;
+
+      if (allPaid && roundsLeft) {
+        drawWinnerBtn.classList.remove('d-none');
+        drawWinnerBtn.onclick = async () => {
+          try {
+            const result = await Api.drawWinner(tontine.id);
+            renderTontineDetail(tontine.id); // Refresh view
+          } catch (error) {
+            notify('Erreur', `Impossible de lancer le tirage: ${error.message}`);
+          }
+        };
+      } else {
+        drawWinnerBtn.classList.add('d-none');
+      }
 
     } catch (error) {
         notify('Erreur', `Impossible de charger les détails: ${error.message}`);

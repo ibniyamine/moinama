@@ -219,6 +219,17 @@ class TontineContributionStatusView(APIView):
                         )
         # --- End auto-generation ---
 
+        # --- Calculate round progress ---
+        total_rounds = tontine.memberships.filter(is_active=True).count()
+        completed_rounds = Withdrawal.objects.filter(tontine=tontine).count()
+
+        last_winner_name = None
+        last_withdrawal = Withdrawal.objects.filter(tontine=tontine).order_by('-date').first()
+        if last_withdrawal:
+            winner = last_withdrawal.beneficiary
+            last_winner_name = f"{winner.first_name} {winner.last_name}".strip() or winner.email
+        # --- End round progress ---
+
         members_status = []
         for member_ship in tontine.memberships.all():
             member = member_ship.user
@@ -290,6 +301,9 @@ class TontineContributionStatusView(APIView):
         return Response({
             'tontine_id': tontine.id,
             'tontine_name': tontine.name,
+            'total_rounds': total_rounds,
+            'completed_rounds': completed_rounds,
+            'last_winner_name': last_winner_name,
             'members_status': members_status,
             'current_user_has_contributed_this_period': current_user_has_contributed_this_period,
         }, status=status.HTTP_200_OK)
