@@ -44,15 +44,18 @@ class TontineMemberSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'joined_at', 'tontine']
 
 
+from transactions.serializers import WithdrawalSerializer
+
 class TontineSerializer(serializers.ModelSerializer):
     owner_email = serializers.ReadOnlyField(source="owner.email")
     members = TontineMemberSerializer(many=True, read_only=True, source='memberships')
     has_contributed_this_period = serializers.SerializerMethodField()
+    withdrawals = WithdrawalSerializer(many=True, read_only=True)
 
     class Meta:
         model = Tontine
         fields = [
-            'id', 'name', 'description', 'amount', 'frequency', 'start_date', 'end_date', 'owner', 'owner_email', 'created_at', 'members', 'has_contributed_this_period'
+            'id', 'name', 'description', 'amount', 'frequency', 'start_date', 'end_date', 'owner', 'owner_email', 'created_at', 'members', 'has_contributed_this_period', 'withdrawals'
         ]
         read_only_fields = ['id', 'created_at', 'owner', 'owner_email', 'members']
 

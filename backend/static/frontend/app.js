@@ -392,22 +392,47 @@ const App = (() => {
       const lateMembersCount = contributionStatus.members_status.filter(m => m.is_late).length;
       const participatingMembersCount = contributionStatus.members_status.filter(m => m.status === 'paid').length;
 
-      // Progress Bar for Rounds & Round Banner
-      const { completed_rounds, total_rounds, last_winner_name } = contributionStatus;
-      const progressPercent = total_rounds > 0 ? (completed_rounds / total_rounds) * 100 : 0;
-      $('#tonProgressBar').style.width = `${progressPercent}%`;
-      $('#tonProgressBarText').textContent = `${completed_rounds} sur ${total_rounds} tours complétés`;
-
-      const roundBanner = $('#tonRoundBanner');
-      if (last_winner_name) {
-        roundBanner.innerHTML = `Tour ${completed_rounds} – Prenant : <strong>${last_winner_name}</strong>`;
-      } else {
-        roundBanner.innerHTML = 'Le premier tour n\'a pas encore été tiré.';
-      }
+      
 
       $('#kpiTonMembers').textContent = members.length;
       $('#kpiTonTotal').textContent = formatCurrency(totalContributed);
       $('#kpiTonLate').textContent = lateMembersCount;
+
+      // Populate Rounds History
+      const tonRoundsHistory = $('#tonRoundsHistory');
+      tonRoundsHistory.innerHTML = ''; // Clear previous content
+
+      if (tontine.withdrawals && tontine.withdrawals.length > 0) {
+        // Sort withdrawals by date descending to show most recent first
+        const sortedWithdrawals = [...tontine.withdrawals].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        sortedWithdrawals.forEach((withdrawal, index) => {
+          const roundNumber = sortedWithdrawals.length - index; // Simple way to get round number if not explicitly provided
+          const beneficiaryName = withdrawal.beneficiary ? `${withdrawal.beneficiary.first_name || ''} ${withdrawal.beneficiary.last_name || ''}`.trim() || withdrawal.beneficiary.email : 'N/A';
+          const withdrawalDate = new Date(withdrawal.date).toLocaleDateString('fr-FR');
+
+          const accordionItem = `
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingRound${roundNumber}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRound${roundNumber}" aria-expanded="false" aria-controls="collapseRound${roundNumber}">
+                  Tour ${roundNumber} - ${beneficiaryName} (${withdrawalDate})
+                </button>
+              </h2>
+              <div id="collapseRound${roundNumber}" class="accordion-collapse collapse" aria-labelledby="headingRound${roundNumber}" data-bs-parent="#tonRoundsHistory">
+                <div class="accordion-body">
+                  <p><strong>Bénéficiaire :</strong> ${beneficiaryName}</p>
+                  <p><strong>Montant du retrait :</strong> ${formatCurrency(withdrawal.amount)}</p>
+                  <p><strong>Date :</strong> ${withdrawalDate}</p>
+                  ${withdrawal.note ? `<p><strong>Note :</strong> ${withdrawal.note}</p>` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+          tonRoundsHistory.innerHTML += accordionItem;
+        });
+      } else {
+        tonRoundsHistory.innerHTML = '<div class="text-muted text-center p-3">Aucun historique de tours disponible.</div>';
+      }
 
       // Members table
       const tbody = $('#tonMembersTable tbody');
