@@ -187,6 +187,7 @@ class TontineContributionStatusView(APIView):
         # --- Round progress ---
         total_rounds = tontine.memberships.filter(is_active=True).count()
         completed_rounds = Withdrawal.objects.filter(tontine=tontine).count()
+        withdrawals_for_current_round = Withdrawal.objects.filter(tontine=tontine, round=tontine.current_round).count()
         last_withdrawal = Withdrawal.objects.filter(tontine=tontine).order_by('-date').first()
         last_winner_name = None
         if last_withdrawal and last_withdrawal.beneficiary:
@@ -229,6 +230,7 @@ class TontineContributionStatusView(APIView):
             'tontine_name': tontine.name,
             'total_rounds': total_rounds,
             'completed_rounds': completed_rounds,
+            'withdrawals_for_current_round': withdrawals_for_current_round,
             'last_winner_name': last_winner_name,
             'members_status': members_status,
             'current_user_has_contributed_this_round': current_user_has_contributed_this_round,
