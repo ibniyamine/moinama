@@ -206,6 +206,20 @@ class TontineContributionStatusView(APIView):
                 round=tontine.current_round
             ).first() # .first() is enough since (member, round) should be unique for a tontine
 
+            is_late = False
+            if contribution_in_round and contribution_in_round.status in ['pending', 'unpaid']:
+                due_date = None
+                if tontine.frequency == 'daily':
+                    due_date = tontine.current_round_start_date
+                elif tontine.frequency == 'weekly':
+                    due_date = tontine.current_round_start_date + timedelta(days=7)
+                elif tontine.frequency == 'monthly':
+                    # Use relativedelta for months to handle month-end correctly
+                    due_date = tontine.current_round_start_date + relativedelta(months=1)
+                
+                if due_date and date.today() > due_date:
+                    is_late = True
+
             members_status.append({
                 'member_id': member.id,
                 'member_email': member.email,
@@ -213,7 +227,8 @@ class TontineContributionStatusView(APIView):
                 'last_contribution_amount': contribution_in_round.amount if contribution_in_round else None,
                 'last_contribution_id': contribution_in_round.id if contribution_in_round else None,
                 'status': contribution_in_round.status if contribution_in_round else 'unpaid',
-                'is_late': False, # is_late is deprecated by this new manual round system
+                'is_late': is_late,
+                'expected_contribution_amount': tontine.amount,
             })
         
         # Determine if the current user has contributed in the current round

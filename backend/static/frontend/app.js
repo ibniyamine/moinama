@@ -391,10 +391,8 @@ const App = (() => {
 
       // KPIs
       const totalContributed = contributionStatus.members_status.reduce((sum, m) => m.status === 'paid' ? sum + (m.last_contribution_amount || 0) : sum, 0);
-      const lateMembersCount = contributionStatus.members_status.filter(m => m.is_late).length;
+      const lateMembersCount = contributionStatus.members_status.filter(m => m.status === 'pending' || m.status === 'unpaid').length;
       const participatingMembersCount = contributionStatus.members_status.filter(m => m.status === 'paid').length;
-
-      
 
       $('#kpiTonMembers').textContent = members.length;
       $('#kpiTonTotal').textContent = formatCurrency(totalContributed);
