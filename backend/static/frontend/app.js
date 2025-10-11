@@ -587,7 +587,9 @@ const App = (() => {
                 };
             } else {
                 // STATE: TONTINE FINISHED
-                tonRoundBanner.innerHTML = '<div class="alert alert-success py-2">Tontine terminée !</div>';
+                tonRoundBanner.textContent = 'Tontine terminée !';
+                tonRoundBanner.classList.remove('alert-info');
+                tonRoundBanner.classList.add('alert-success');
             }
         } else {
             // STATE: READY TO DESIGNATE
@@ -621,7 +623,9 @@ const App = (() => {
                 }
             } else {
                 // STATE: TONTINE FINISHED
-                tonRoundBanner.innerHTML = '<div class="alert alert-success py-2">Tontine terminée !</div>';
+                tonRoundBanner.textContent = 'Tontine terminée !';
+                tonRoundBanner.classList.remove('alert-info');
+                tonRoundBanner.classList.add('alert-success');
             }
         }
       }
