@@ -134,8 +134,9 @@ class WithdrawalListCreateView(generics.ListCreateAPIView):
         serializer.save(beneficiary=beneficiary)
 
     def get_queryset(self):
-        # Allow filtering withdrawals by tontine_id
-        queryset = self.queryset.filter(beneficiary=self.request.user)
+        user = self.request.user
+        # Show withdrawals where the user is the beneficiary OR the user is the owner of the tontine
+        queryset = self.queryset.filter(Q(beneficiary=user) | Q(tontine__owner=user)).distinct()
 
         tontine_id = self.request.query_params.get('tontine_id')
         if tontine_id:
