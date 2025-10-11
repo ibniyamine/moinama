@@ -37,22 +37,21 @@ class ContributionListCreateView(generics.ListAPIView):
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
-            print(f"[DEBUG] User is not authenticated.")
             return self.queryset.none()
 
-        print(f"[DEBUG] Current User: {self.request.user.get_username()} (ID: {self.request.user.id})")
+        queryset = self.queryset.all() # Start with all contributions
 
         tontine_id = self.request.query_params.get('tontine_id')
         if tontine_id:
             tontine = get_object_or_404(Tontine, pk=tontine_id)
             if tontine.owner == self.request.user:
-                return self.queryset.filter(tontine=tontine)
+                queryset = queryset.filter(tontine=tontine)
             else:
-                return self.queryset.filter(tontine=tontine, member=self.request.user)
-        
-        # If no tontine_id is provided:
-        # Show contributions where the user is the member OR the user is the owner of the tontine
-        queryset = self.queryset.filter(Q(member=self.request.user) | Q(tontine__owner=self.request.user)).distinct()
+                queryset = queryset.filter(tontine=tontine, member=self.request.user)
+        else:
+            # If no tontine_id is provided:
+            # Show contributions where the user is the member OR the user is the owner of the tontine
+            queryset = queryset.filter(Q(member=self.request.user) | Q(tontine__owner=self.request.user)).distinct()
         
         member_id = self.request.query_params.get('member_id')
         if member_id:
@@ -65,6 +64,10 @@ class ContributionListCreateView(generics.ListAPIView):
             queryset = queryset.filter(date__date__gte=start_date_str)
         if end_date_str:
             queryset = queryset.filter(date__date__lte=end_date_str)
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
 
         return queryset
 

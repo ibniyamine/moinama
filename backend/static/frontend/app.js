@@ -218,7 +218,7 @@ const App = (() => {
         state.tontines = await Api.getTontines();
       }
 
-      const allContributions = await Api.getContributions();
+      const allContributions = await Api.getContributions({ status: 'paid' });
       const myContributions = allContributions.filter(tx => tx.member.id === state.user.id); // Assuming tx.member exists and matches user.id
 
       if (!myContributions.length) {
@@ -770,7 +770,7 @@ const App = (() => {
       let allTransactions = [];
 
       if (typeFilter === 'all' || typeFilter === 'contribution') {
-        const contributions = await Api.getContributions(params);
+        const contributions = await Api.getContributions({ ...params, status: 'paid' });
         allTransactions.push(...contributions.map(tx => {
           const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
           const fullName = `${tx.member.first_name || ''} ${tx.member.last_name || ''}`.trim();
