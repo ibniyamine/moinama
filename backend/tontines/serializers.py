@@ -49,42 +49,36 @@ from transactions.serializers import WithdrawalSerializer
 class TontineSerializer(serializers.ModelSerializer):
     owner_email = serializers.ReadOnlyField(source="owner.email")
     members = TontineMemberSerializer(many=True, read_only=True, source='memberships')
-    has_contributed_this_period = serializers.SerializerMethodField()
+    has_contributed_this_round = serializers.SerializerMethodField() # Renamed
     withdrawals = WithdrawalSerializer(many=True, read_only=True)
+    designated_recipient_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Tontine
         fields = [
-            'id', 'name', 'description', 'amount', 'frequency', 'start_date', 'end_date', 'owner', 'owner_email', 'created_at', 'members', 'has_contributed_this_period', 'withdrawals'
+            'id', 'name', 'description', 'amount', 'frequency', 'start_date', 'end_date', 
+            'owner', 'owner_email', 'created_at', 'members', 'has_contributed_this_round', # Renamed
+            'withdrawals', 'designated_recipient', 'designated_recipient_details', 'current_round' # Added current_round
         ]
         read_only_fields = ['id', 'created_at', 'owner', 'owner_email', 'members']
 
-    def get_has_contributed_this_period(self, obj):
+    def get_designated_recipient_details(self, obj):
+        if obj.designated_recipient:
+            recipient = obj.designated_recipient
+            return {
+                'id': recipient.id,
+                'name': f"{recipient.first_name} {recipient.last_name}".strip() or recipient.email,
+            }
+        return None
+
+    def get_has_contributed_this_round(self, obj): # Renamed
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-
-        member = request.user
-        tontine = obj
-        today = date.today()
-
-        current_period_start = None
-        if tontine.frequency == 'weekly':
-            days_since_tontine_start = (today - tontine.start_date).days
-            current_week_offset = (days_since_tontine_start // 7) * 7
-            current_period_start = tontine.start_date + timedelta(days=current_week_offset)
-        elif tontine.frequency == 'monthly':
-            tontine_start_day = tontine.start_date.day
-            if today.day >= tontine_start_day:
-                current_period_start = date(today.year, today.month, tontine_start_day)
-            else:
-                current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
-
-        if current_period_start:
-            return Contribution.objects.filter(
-                tontine=tontine,
-                member=member,
-                date__date__gte=current_period_start,
-                date__date__lte=today
-            ).exists()
-        return False
+        
+        # Find if a contribution exists for the current user for the tontine's current round
+        return Contribution.objects.filter(
+            tontine=obj,
+            member=request.user,
+            round=obj.current_round
+        ).exists()

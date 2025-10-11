@@ -178,125 +178,51 @@ class TontineContributionStatusView(APIView):
     def get(self, request, tontine_id, format=None):
         tontine = get_object_or_404(Tontine, pk=tontine_id)
 
-        # Check if the user is the owner or a member of the tontine
+        # Permissions check
         is_owner = tontine.owner == request.user
         is_member = TontineMember.objects.filter(tontine=tontine, user=request.user, is_active=True).exists()
         if not (is_owner or is_member):
             raise PermissionDenied("You do not have permission to view this tontine's contribution status.")
 
-        # --- Auto-generate contributions for the current period if user is owner ---
-        if is_owner and tontine.start_date:
-            today = date.today()
-            current_period_start = None
-            if tontine.frequency == 'weekly':
-                days_since_start = (today - tontine.start_date).days
-                current_week_offset = (days_since_start // 7) * 7
-                current_period_start = tontine.start_date + timedelta(days=current_week_offset)
-            elif tontine.frequency == 'monthly':
-                start_day = tontine.start_date.day
-                current_period_start = date(today.year, today.month, start_day)
-                if today.day < start_day:
-                    current_period_start -= relativedelta(months=1)
-            else: # daily
-                current_period_start = today
-
-            if current_period_start:
-                active_memberships = tontine.memberships.filter(is_active=True)
-                for membership in active_memberships:
-                    has_existing_contribution = Contribution.objects.filter(
-                        tontine=tontine,
-                        member=membership.user,
-                        date__gte=current_period_start
-                    ).exists()
-
-                    if not has_existing_contribution:
-                        Contribution.objects.create(
-                            tontine=tontine,
-                            member=membership.user,
-                            amount=tontine.amount,
-                            status='pending',
-                            date=today
-                        )
-        # --- End auto-generation ---
-
-        # --- Calculate round progress ---
+        # --- Round progress ---
         total_rounds = tontine.memberships.filter(is_active=True).count()
         completed_rounds = Withdrawal.objects.filter(tontine=tontine).count()
-
-        last_winner_name = None
         last_withdrawal = Withdrawal.objects.filter(tontine=tontine).order_by('-date').first()
-        if last_withdrawal:
+        last_winner_name = None
+        if last_withdrawal and last_withdrawal.beneficiary:
             winner = last_withdrawal.beneficiary
             last_winner_name = f"{winner.first_name} {winner.last_name}".strip() or winner.email
-        # --- End round progress ---
 
+        # --- Member Status for the CURRENT round ---
         members_status = []
-        for member_ship in tontine.memberships.all():
+        for member_ship in tontine.memberships.filter(is_active=True):
             member = member_ship.user
-            last_contribution = Contribution.objects.filter(tontine=tontine, member=member).order_by('-date').first()
             
-            is_late = False
-            if tontine.start_date and tontine.frequency:
-                today = date.today()
-                current_period_start = None
-                
-                if tontine.frequency == 'weekly':
-                    days_since_tontine_start = (today - tontine.start_date).days
-                    current_week_offset = (days_since_tontine_start // 7) * 7
-                    current_period_start = tontine.start_date + timedelta(days=current_week_offset)
-                elif tontine.frequency == 'monthly':
-                    tontine_start_day = tontine.start_date.day
-                    if today.day >= tontine_start_day:
-                        current_period_start = date(today.year, today.month, tontine_start_day)
-                    else:
-                        current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
-                
-                if current_period_start and today > current_period_start:
-                    # Check if a contribution exists within the current period (from current_period_start up to today)
-                    contribution_in_current_period = Contribution.objects.filter(
-                        tontine=tontine,
-                        member=member,
-                        date__date__gte=current_period_start,
-                        date__date__lte=today
-                    ).exists()
-                    
-                    if not contribution_in_current_period:
-                        is_late = True
+            # Find the contribution for the current round for this member
+            contribution_in_round = Contribution.objects.filter(
+                tontine=tontine, 
+                member=member,
+                round=tontine.current_round
+            ).first() # .first() is enough since (member, round) should be unique for a tontine
 
             members_status.append({
                 'member_id': member.id,
                 'member_email': member.email,
-                'last_contribution_date': last_contribution.date.date() if last_contribution else None,
-                'last_contribution_amount': last_contribution.amount if last_contribution else None,
-                'last_contribution_id': last_contribution.id if last_contribution else None,
-                'status': last_contribution.status if last_contribution else 'unpaid',
-                'is_late': is_late,
-                'expected_contribution_amount': tontine.amount,
+                'last_contribution_date': contribution_in_round.date.date() if contribution_in_round else None,
+                'last_contribution_amount': contribution_in_round.amount if contribution_in_round else None,
+                'last_contribution_id': contribution_in_round.id if contribution_in_round else None,
+                'status': contribution_in_round.status if contribution_in_round else 'unpaid',
+                'is_late': False, # is_late is deprecated by this new manual round system
             })
         
-        # Determine if the current user has contributed in the current period
-        current_user_has_contributed_this_period = False
+        # Determine if the current user has contributed in the current round
+        current_user_has_contributed_this_round = False
         if request.user.is_authenticated:
-            today = date.today()
-            current_period_start = None
-            if tontine.frequency == 'weekly':
-                days_since_tontine_start = (today - tontine.start_date).days
-                current_week_offset = (days_since_tontine_start // 7) * 7
-                current_period_start = tontine.start_date + timedelta(days=current_week_offset)
-            elif tontine.frequency == 'monthly':
-                tontine_start_day = tontine.start_date.day
-                if today.day >= tontine_start_day:
-                    current_period_start = date(today.year, today.month, tontine_start_day)
-                else:
-                    current_period_start = date(today.year, today.month, tontine_start_day) - relativedelta(months=1)
-            
-            if current_period_start:
-                current_user_has_contributed_this_period = Contribution.objects.filter(
-                    tontine=tontine,
-                    member=request.user,
-                    date__date__gte=current_period_start,
-                    date__date__lte=today
-                ).exists()
+            current_user_has_contributed_this_round = Contribution.objects.filter(
+                tontine=tontine,
+                member=request.user,
+                round=tontine.current_round
+            ).exists()
 
         return Response({
             'tontine_id': tontine.id,
@@ -305,7 +231,7 @@ class TontineContributionStatusView(APIView):
             'completed_rounds': completed_rounds,
             'last_winner_name': last_winner_name,
             'members_status': members_status,
-            'current_user_has_contributed_this_period': current_user_has_contributed_this_period,
+            'current_user_has_contributed_this_round': current_user_has_contributed_this_round,
         }, status=status.HTTP_200_OK)
 
 

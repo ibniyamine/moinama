@@ -64,7 +64,9 @@ const Api = (() => {
     getTontineMembers: (id) => request(`/api/tontines/${id}/members/`),
     addTontineMember: (tontineId, userId) => request(`/api/tontines/${tontineId}/add-member/`, 'POST', { user_id: userId }),
     deleteTontine: (id) => request(`/api/tontines/${id}/`, 'DELETE'),
-    drawWinner: (tontineId) => request(`/api/tontines/${tontineId}/draw-winner/`, 'POST'),
+    designateRecipient: (tontineId, userId) => request(`/api/tontines/${tontineId}/designate-recipient/`, 'POST', { user_id: userId }),
+    processPayout: (tontineId) => request(`/api/tontines/${tontineId}/process-payout/`, 'POST'),
+    validateRound: (tontineId) => request(`/api/tontines/${tontineId}/validate-round/`, 'POST'),
     updateTontine: (id, data) => request(`/api/tontines/${id}/`, 'PATCH', data),
     createContribution: (data) => request('/api/transactions/contributions/', 'POST', data),
     getTontineContributionStatus: (tontineId) => request(`/api/transactions/tontines/${tontineId}/status/`),
@@ -364,11 +366,11 @@ const App = (() => {
       const contributeButton = $('button[data-action="contribute"]'); // This button is in the tontine list, not detail
       const contributeModalButton = $('#confirmContributeBtn'); // This is the button inside the modal
 
-      if (contributionStatus.current_user_has_contributed_this_period) {
+      if (contributionStatus.current_user_has_contributed_this_round) {
         // If the current user has contributed, disable the button in the modal
         if (contributeModalButton) {
           contributeModalButton.disabled = true;
-          contributeModalButton.textContent = 'Déjà cotisé ce mois/semaine';
+          contributeModalButton.textContent = 'Déjà cotisé pour ce tour';
         }
         // Also disable the contribute button in the tontine list if it's visible
         // (though this function is for detail view, good to be safe)
@@ -521,15 +523,19 @@ const App = (() => {
         });
       });
 
-      // Determine if the current user is the tontine owner
       const isOwner = state.user && tontine.owner === state.user.id;
 
       // Handle visibility of owner-specific buttons
       const editTontineBtn = $('#editTontineBtn');
       const deleteTontineBtn = $('#deleteTontineBtn');
       const addMemberBtn = $('#addMemberBtn');
-      const drawWinnerBtn = $('#drawWinnerBtn');
       const validateRoundBtn = $('#validateRoundBtn');
+      
+      // New elements for manual designation
+      const designateWinnerSection = $('#designateWinnerSection');
+      const eligibleMembersSelect = $('#eligibleMembersSelect');
+      const designateWinnerBtn = $('#designateWinnerBtn');
+      const processPayoutBtn = $('#processPayoutBtn');
 
       if (isOwner) {
         editTontineBtn.classList.remove('d-none');
@@ -540,7 +546,6 @@ const App = (() => {
         editTontineBtn.classList.add('d-none');
         deleteTontineBtn.classList.add('d-none');
         addMemberBtn.classList.add('d-none');
-        drawWinnerBtn.classList.add('d-none'); // Ensure draw button is hidden for non-owners
         validateRoundBtn.classList.add('d-none'); // Hide validate button for non-owners
       }
 
@@ -549,29 +554,87 @@ const App = (() => {
         editTontineBtn.onclick = () => handleEditTontine(tontine);
         deleteTontineBtn.onclick = () => handleDeleteTontine(tontine);
         addMemberBtn.onclick = () => handleAddMember(tontine);
-        // drawWinnerBtn.onclick logic will be handled below
+
+        // Logic for the validate round button
+        validateRoundBtn.onclick = async () => {
+            try {
+                const result = await Api.validateRound(tontine.id);
+                notify('Succès', result.message || 'Le tour a été validé avec succès.');
+                renderTontineDetail(tontine.id); // Refresh the view
+            } catch (error) {
+                notify('Erreur', `Impossible de valider le tour: ${error.message}`);
+            }
+        };
+
+        // A round can be validated only after the designated recipient has been paid (is null)
+        // and there are still rounds left to play.
+        const canValidate = tontine.designated_recipient === null && contributionStatus.completed_rounds < contributionStatus.total_rounds;
+        validateRoundBtn.disabled = !canValidate;
+        if (!canValidate) {
+            validateRoundBtn.setAttribute('title', 'Le paiement doit être effectué pour le bénéficiaire actuel avant de pouvoir commencer un nouveau tour.');
+        } else {
+            validateRoundBtn.removeAttribute('title');
+        }
       }
 
-      // --- Draw winner button logic ---
-      // This logic already handles d-none, but we need to ensure it's only shown if isOwner is true
-      // The initial d-none for drawWinnerBtn is set above if not owner.
-      // So, we only need to add the onclick handler if isOwner and conditions are met.
-      // The drawWinnerBtn element is already defined above.
-      const allPaid = contributionStatus.members_status.every(m => m.status === 'paid');
-      const roundsLeft = contributionStatus.total_rounds > contributionStatus.completed_rounds;
+      // --- Manual Winner Designation and Payout Logic ---
+      designateWinnerSection.classList.add('d-none');
+      processPayoutBtn.classList.add('d-none');
 
-      if (isOwner && allPaid && roundsLeft) { // Only show if owner and conditions met
-        drawWinnerBtn.classList.remove('d-none');
-        drawWinnerBtn.onclick = async () => {
-          try {
-            const result = await Api.drawWinner(tontine.id);
-            renderTontineDetail(tontine.id); // Refresh view
-          } catch (error) {
-            notify('Erreur', `Impossible de lancer le tirage: ${error.message}`);
-          }
-        };
-      } else {
-        drawWinnerBtn.classList.add('d-none'); // Ensure it's hidden if not owner or conditions not met
+      if (isOwner) {
+        const allPaid = contributionStatus.members_status.every(m => m.status === 'paid');
+        const roundsLeft = contributionStatus.total_rounds > contributionStatus.completed_rounds;
+
+        if (tontine.designated_recipient) {
+            // A recipient is designated, show the payout button
+            processPayoutBtn.classList.remove('d-none');
+            const recipientName = tontine.designated_recipient_details?.name || 'le bénéficiaire désigné';
+            processPayoutBtn.innerHTML = `<i class="bi bi-check2-circle"></i> Effectuer le paiement pour ${recipientName}`;
+            
+            processPayoutBtn.onclick = async () => {
+                if (!allPaid) {
+                    notify('Attention', 'Toutes les cotisations pour ce tour n\'ont pas été marquées comme payées.');
+                    return;
+                }
+                try {
+                    const result = await Api.processPayout(tontine.id);
+                    notify('Succès', result.message || 'Paiement effectué avec succès.');
+                    renderTontineDetail(tontine.id); // Refresh view
+                } catch (error) {
+                    notify('Erreur', `Impossible d'effectuer le paiement: ${error.message}`);
+                }
+            };
+        } else if (roundsLeft) {
+            // No recipient designated, show the designation section
+            designateWinnerSection.classList.remove('d-none');
+
+            const previousWinnerIds = new Set(tontine.withdrawals.map(w => w.beneficiary.id));
+            const eligibleMembers = members.filter(m => !previousWinnerIds.has(m.user));
+
+            if (eligibleMembers.length > 0) {
+                eligibleMembersSelect.innerHTML = '<option value="">-- Sélectionnez un bénéficiaire --</option>' +
+                    eligibleMembers.map(m => `<option value="${m.user}">${m.user_first_name || ''} ${m.user_last_name || ''} (${m.user_email})</option>`).join('');
+                
+                designateWinnerBtn.disabled = false;
+                designateWinnerBtn.onclick = async () => {
+                    const selectedUserId = eligibleMembersSelect.value;
+                    if (!selectedUserId) {
+                        notify('Erreur', 'Veuillez sélectionner un membre.');
+                        return;
+                    }
+                    try {
+                        const result = await Api.designateRecipient(tontine.id, selectedUserId);
+                        notify('Succès', result.message || 'Bénéficiaire désigné.');
+                        renderTontineDetail(tontine.id); // Refresh view
+                    } catch (error) {
+                        notify('Erreur', `Impossible de désigner le bénéficiaire: ${error.message}`);
+                    }
+                };
+            } else {
+                eligibleMembersSelect.innerHTML = '<option value="">Aucun membre éligible</option>';
+                designateWinnerBtn.disabled = true;
+            }
+        }
       }
 
     } catch (error) {
@@ -785,10 +848,10 @@ const App = (() => {
       if (contributeBtn) {
         const id = contributeBtn.getAttribute('data-id');
         const tontine = state.tontines.find(t => t.id == id);
-        if (tontine && !tontine.has_contributed_this_period) {
+        if (tontine && !tontine.has_contributed_this_round) {
           handleContribute(tontine);
-        } else if (tontine && tontine.has_contributed_this_period) {
-          notify('Information', 'Vous avez déjà cotisé à cette tontine pour la période actuelle.');
+        } else if (tontine && tontine.has_contributed_this_round) {
+          notify('Information', 'Vous avez déjà cotisé à cette tontine pour le tour actuel.');
         }
       }
     });

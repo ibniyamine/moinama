@@ -48,7 +48,20 @@ python manage.py runserver
   - `POST /api/accounts/register/` (body: email, phone, first_name, last_name, password)
   - `GET /api/accounts/me/` (JWT requis)
 
+## Fonctionnalités implémentées
+
+### Gestion des Tontines
+- Création, édition et suppression de tontines.
+- Ajout et suppression de membres dans une tontine.
+- Affichage détaillé des tontines avec KPIs (Membres, Montant total cotisé, En retard / En attente).
+- **Historique des tours** : Visualisation des tirages au sort passés (bénéficiaire, montant, date).
+- **Contrôle d'accès renforcé** : Les actions d'administration (édition, suppression, ajout de membre, tirage au sort, validation) sont désormais réservées au propriétaire de la tontine sur l'interface utilisateur.
+
+### Transactions
+- Enregistrement des contributions et retraits.
+- Suivi du statut des contributions (en attente, payé, non payé).
+- **Prévention des tirages multiples** : Un seul tirage au sort est autorisé par période de contribution.
+- Génération automatique des contributions "en attente" pour la période en cours.
+
 ## À venir
-- Modèles et endpoints Tontines (règles, membres, rôles)
-- Transactions (contributions, retraits, historique, notifications)
 - Messagerie interne (optionnel) et notifications push

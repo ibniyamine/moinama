@@ -17,6 +17,15 @@ class Tontine(models.Model):
     end_date = models.DateField(null=True, blank=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='owned_tontines')
     created_at = models.DateTimeField(auto_now_add=True)
+    current_round = models.PositiveIntegerField(default=1)
+    current_round_start_date = models.DateField(null=True, blank=True)
+    designated_recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='designated_tontines'
+    )
 
     def __str__(self):
         return self.name

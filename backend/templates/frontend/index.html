@@ -176,7 +176,17 @@
                 <button class="btn btn-outline-danger" id="deleteTontineBtn"><i class="bi bi-trash"></i> Supprimer</button>
                 <button class="btn btn-outline-success" id="addMemberBtn"><i class="bi bi-person-plus"></i> Ajouter membre</button>
               </div>
-              <button class="btn btn-primary d-none" id="drawWinnerBtn"><i class="bi bi-dice-5"></i> Lancer le tirage au sort</button>
+              <div id="designateWinnerSection" class="d-none card bg-light mb-3">
+                <div class="card-body">
+                  <h6 class="card-title">Désigner le prochain bénéficiaire</h6>
+                  <div class="input-group">
+                    <select class="form-select" id="eligibleMembersSelect"></select>
+                    <button class="btn btn-outline-primary" type="button" id="designateWinnerBtn">Désigner</button>
+                  </div>
+                  <div class="form-text">Sélectionnez un membre éligible et cliquez sur "Désigner".</div>
+                </div>
+              </div>
+              <button class="btn btn-success d-none" id="processPayoutBtn"><i class="bi bi-check2-circle"></i> Effectuer le paiement</button>
             </div>
             <div class="row g-3 mb-3">
               <div class="col-6 col-lg-4">
@@ -517,6 +527,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="{% static 'frontend/app.js' %}?v=1.10"></script>
+    <script src="{% static 'frontend/app.js' %}?v=1.11"></script>
   </body>
 </html>
