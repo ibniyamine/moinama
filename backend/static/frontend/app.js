@@ -485,11 +485,11 @@ const App = (() => {
           });
 
           let contributionsHtml = `
-            <div class="d-flex justify-content-between mb-2">
-              <span class="badge bg-success">Payés: ${paidCount}</span>
-              <span class="badge bg-warning text-dark">En attente: ${pendingCount}</span>
-              <span class="badge bg-danger">Non payés: ${unpaidCount}</span>
-              <span class="badge bg-primary">Total cotisé: ${formatCurrency(totalCollected)}</span>
+            <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+              <span class="badge rounded-pill border border-success text-success bg-transparent">Payés: ${paidCount}</span>
+              <span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente: ${pendingCount}</span>
+              <span class="badge rounded-pill border border-danger text-danger bg-transparent">Non payés: ${unpaidCount}</span>
+              <span class="badge rounded-pill border border-primary text-primary bg-transparent">Total cotisé: ${formatCurrency(totalCollected)}</span>
             </div>
             <table class="table table-sm table-hover">
               <thead class="table-light">
@@ -521,7 +521,7 @@ const App = (() => {
                 displayName = `Membre #${member.user}`;
             }
 
-            let statusBadge = '<span class="badge bg-danger">Non payé</span>';
+            let statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Non payé</span>';
             let paymentDate = '-';
             let amount = '-';
             let rowClass = 'table-light';
@@ -534,19 +534,19 @@ const App = (() => {
                 }
                 switch (contribution.status) {
                     case 'paid':
-                        statusBadge = '<span class="badge bg-success">Payé</span>';
+                        statusBadge = '<span class="badge rounded-pill border border-success text-success bg-transparent">Payé</span>';
                         rowClass = '';
                         break;
                     case 'pending':
-                        statusBadge = '<span class="badge bg-warning text-dark">En attente</span>';
+                        statusBadge = '<span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente</span>';
                         rowClass = 'table-warning';
                         break;
                     case 'unpaid':
-                        statusBadge = '<span class="badge bg-danger">Impayé</span>';
+                        statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Impayé</span>';
                         rowClass = 'table-danger';
                         break;
                     default:
-                        statusBadge = '<span class="badge bg-secondary">Inconnu</span>';
+                        statusBadge = '<span class="badge rounded-pill border border-secondary text-secondary bg-transparent">Inconnu</span>';
                 }
             }
             
