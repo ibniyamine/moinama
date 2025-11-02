@@ -282,8 +282,8 @@ class DashboardGlobalStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, format=None):
-        # Total Contributions
-        total_contributions = Contribution.objects.aggregate(Sum('amount'))['amount__sum'] or 0
+        # Total Contributions (only paid contributions)
+        total_contributions = Contribution.objects.filter(status='paid').aggregate(Sum('amount'))['amount__sum'] or 0
 
         # Total Withdrawals (assuming a similar model for withdrawals exists)
         total_withdrawals = Withdrawal.objects.aggregate(Sum('amount'))['amount__sum'] or 0
@@ -294,11 +294,12 @@ class DashboardGlobalStatsView(APIView):
         # Total Active Tontines (assuming all tontines are "active" for now, or add an 'is_active' field to Tontine model)
         total_active_tontines = Tontine.objects.count()
 
-        # Contribution Chart Data (e.g., last 30 days)
+        # Contribution Chart Data (e.g., last 30 days) - only paid contributions
         today = date.today()
         thirty_days_ago = today - timedelta(days=30)
         
         contributions_last_30_days = Contribution.objects.filter(
+            status='paid',
             date__date__gte=thirty_days_ago,
             date__date__lte=today
         ).extra({'day': "date(date)"}).values('day').annotate(total_amount=Sum('amount')).order_by('day')
