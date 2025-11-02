@@ -232,3 +232,26 @@ class TontineViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(detail=True, methods=['get'], url_path='contributions', permission_classes=[permissions.IsAuthenticated, IsTontineMember])
+    def contributions(self, request, pk=None):
+        tontine = self.get_object()
+        contributions = Contribution.objects.filter(tontine=tontine).order_by('round', '-date')
+        
+        grouped_contributions = {}
+        for c in contributions:
+            if c.round not in grouped_contributions:
+                grouped_contributions[c.round] = []
+            
+            grouped_contributions[c.round].append({
+                'id': c.id,
+                'member_id': c.member.id,
+                'member_name': f"{c.member.first_name} {c.member.last_name}".strip() or c.member.email,
+                'amount': c.amount,
+                'status': c.status,
+                'date': c.date,
+                'round': c.round,
+            })
+            
+        return Response(grouped_contributions)

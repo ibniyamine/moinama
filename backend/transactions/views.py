@@ -44,10 +44,13 @@ class ContributionListCreateView(generics.ListAPIView):
         tontine_id = self.request.query_params.get('tontine_id')
         if tontine_id:
             tontine = get_object_or_404(Tontine, pk=tontine_id)
-            if tontine.owner == self.request.user:
+            # For a specific tontine, all members should be visible to the owner or other members
+            is_member = TontineMember.objects.filter(tontine=tontine, user=self.request.user, is_active=True).exists()
+            if tontine.owner == self.request.user or is_member:
                 queryset = queryset.filter(tontine=tontine)
             else:
-                queryset = queryset.filter(tontine=tontine, member=self.request.user)
+                # If user is not a member or owner, they can't see any contributions for this tontine
+                return self.queryset.none()
         else:
             # If no tontine_id is provided:
             # Show contributions where the user is the member OR the user is the owner of the tontine
@@ -70,6 +73,25 @@ class ContributionListCreateView(generics.ListAPIView):
             queryset = queryset.filter(status=status_filter)
 
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        tontine_id = request.query_params.get('tontine_id')
+        # Only group if a specific tontine_id is requested
+        if tontine_id:
+            queryset = self.get_queryset().order_by('round', '-date')
+            grouped_contributions = {}
+            for c in queryset:
+                if c.round not in grouped_contributions:
+                    grouped_contributions[c.round] = []
+                
+                # Using serializer for consistency
+                serializer = self.get_serializer(c)
+                grouped_contributions[c.round].append(serializer.data)
+            
+            return Response(grouped_contributions)
+        
+        # Default behavior: return a flat list
+        return super().list(request, *args, **kwargs)
 
 
 class ContributionDetailView(generics.RetrieveUpdateDestroyAPIView):

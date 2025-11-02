@@ -2,13 +2,18 @@
 const Api = (() => {
   async function request(url, method = 'GET', data = null) {
     const token = localStorage.getItem('moinama.auth.access'); // Get token from localStorage
+    console.log('Token from localStorage:', token ? 'Token found' : 'No token found');
+    
     const headers = {
       'Content-Type': 'application/json',
     };
-
+    
     // Add Authorization header if token exists
     if (token) {
+      console.log('Adding Authorization header with token');
       headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('No authentication token found in localStorage');
     }
 
     // Add X-CSRFToken for non-GET requests
@@ -350,10 +355,11 @@ const App = (() => {
 
   async function renderTontineDetail(id) {
     try {
-      const [tontine, members, contributionStatus] = await Promise.all([
+      const [tontine, members, contributionStatus, withdrawalsData] = await Promise.all([
         Api.getTontineDetail(id),
         Api.getTontineMembers(id),
-        Api.getTontineContributionStatus(id)
+        Api.getTontineContributionStatus(id),
+        Api.getWithdrawals({ tontine_id: id })
       ]);
 
       $('#tonDetailTitle').textContent = tontine.name;
@@ -398,40 +404,193 @@ const App = (() => {
       $('#kpiTonTotal').textContent = formatCurrency(totalContributed);
       $('#kpiTonLate').textContent = lateMembersCount;
 
+      // Build withdrawals map (prefer detail payload, fall back to list endpoint)
+      const withdrawalsMap = new Map();
+      const mergedWithdrawals = [
+        ...(Array.isArray(tontine.withdrawals) ? tontine.withdrawals : []),
+        ...(Array.isArray(withdrawalsData) ? withdrawalsData : [])
+      ];
+      mergedWithdrawals.forEach(withdrawal => {
+        if (!withdrawal) return;
+        const roundKey = String(withdrawal.round ?? withdrawal.round_number ?? '');
+        if (!roundKey) return;
+        if (!withdrawalsMap.has(roundKey)) {
+          withdrawalsMap.set(roundKey, withdrawal);
+        }
+      });
+
       // Populate Rounds History
       const tonRoundsHistory = $('#tonRoundsHistory');
       tonRoundsHistory.innerHTML = ''; // Clear previous content
 
-      if (tontine.withdrawals && tontine.withdrawals.length > 0) {
-        // Sort withdrawals by date descending to show most recent first
-        const sortedWithdrawals = [...tontine.withdrawals].sort((a, b) => new Date(b.date) - new Date(a.date));
+      // Récupérer les données des contributions par tour
+      const contributionsByRound = await Api.getContributions({ tontine_id: id });
+      
+      // Récupérer les membres pour afficher les non-contributeurs
+      const allMembers = await Api.getTontineMembers(id);
+      
+      // Trier les tours par ordre décroissant
+      const rounds = Object.keys(contributionsByRound).sort((a, b) => b - a);
 
-        sortedWithdrawals.forEach((withdrawal, index) => {
-          const roundNumber = sortedWithdrawals.length - index; // Simple way to get round number if not explicitly provided
-          const beneficiaryName = withdrawal.beneficiary ? `${withdrawal.beneficiary.first_name || ''} ${withdrawal.beneficiary.last_name || ''}`.trim() || withdrawal.beneficiary.email : 'N/A';
-          const withdrawalDate = new Date(withdrawal.date).toLocaleDateString('fr-FR');
+      if (rounds.length > 0) {
+        rounds.forEach(roundNumber => {
+          const contributions = contributionsByRound[roundNumber];
+          const paidContributions = contributions.filter(c => c.status === 'paid');
+          const totalCollected = paidContributions.reduce((sum, c) => sum + parseFloat(c.amount), 0);
+          const totalMembers = allMembers.length;
+          const paidCount = paidContributions.length;
+          const pendingCount = contributions.filter(c => c.status === 'pending').length;
+          const unpaidCount = totalMembers - paidCount - pendingCount;
 
-          const accordionItem = `
-            <div class="accordion-item">
-              <h2 class="accordion-header" id="headingRound${roundNumber}">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRound${roundNumber}" aria-expanded="false" aria-controls="collapseRound${roundNumber}">
-                  Tour ${roundNumber} - ${beneficiaryName} (${withdrawalDate})
-                </button>
-              </h2>
-              <div id="collapseRound${roundNumber}" class="accordion-collapse collapse" aria-labelledby="headingRound${roundNumber}" data-bs-parent="#tonRoundsHistory">
-                <div class="accordion-body">
-                  <p><strong>Bénéficiaire :</strong> ${beneficiaryName}</p>
-                  <p><strong>Montant du retrait :</strong> ${formatCurrency(withdrawal.amount)}</p>
-                  <p><strong>Date :</strong> ${withdrawalDate}</p>
-                  ${withdrawal.note ? `<p><strong>Note :</strong> ${withdrawal.note}</p>` : ''}
+          const accordionItem = document.createElement('div');
+          accordionItem.className = 'accordion-item';
+
+          // Retrieve withdrawal information for the round if available
+          const withdrawal = withdrawalsMap.get(String(roundNumber)) || null;
+          let withdrawalHtml = '';
+          let withdrawalSummary = '';
+          if (withdrawal && withdrawal.beneficiary) {
+            const withdrawalDate = withdrawal.date
+              ? new Date(withdrawal.date).toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })
+              : '-';
+            const beneficiaryName = `${withdrawal.beneficiary.first_name || ''} ${withdrawal.beneficiary.last_name || ''}`.trim() ||
+              withdrawal.beneficiary.email ||
+              `Membre #${withdrawal.beneficiary.id}`;
+
+            withdrawalSummary = `- ${beneficiaryName}`;
+            withdrawalHtml = `
+              <div class="p-3 border-bottom bg-light">
+                <h6 class="text-muted mb-2">Bénéficiaire du tour ${roundNumber}</h6>
+                <ul class="list-unstyled mb-0 small">
+                  <li><strong>Bénéficiaire :</strong> ${beneficiaryName}</li>
+                  <li><strong>Montant :</strong> ${formatCurrency(withdrawal.amount || 0)}</li>
+                  <li><strong>Date :</strong> ${withdrawalDate}</li>
+                  ${withdrawal.note ? `<li><strong>Note :</strong> ${withdrawal.note}</li>` : ''}
+                </ul>
+              </div>
+            `;
+          }
+
+          // Build contributions table (Refactored to prevent duplicates)
+          const contributionsMap = new Map();
+          contributions.forEach(c => {
+            const memberId = c?.member?.id ?? c?.member_id;
+            if (memberId !== undefined && memberId !== null) {
+              contributionsMap.set(String(memberId), c);
+            }
+          });
+
+          let contributionsHtml = `
+            <div class="d-flex justify-content-between mb-2">
+              <span class="badge bg-success">Payés: ${paidCount}</span>
+              <span class="badge bg-warning text-dark">En attente: ${pendingCount}</span>
+              <span class="badge bg-danger">Non payés: ${unpaidCount}</span>
+              <span class="badge bg-primary">Total cotisé: ${formatCurrency(totalCollected)}</span>
+            </div>
+            <table class="table table-sm table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>Membre</th>
+                  <th class="text-end">Montant</th>
+                  <th class="text-end">Statut</th>
+                  <th class="text-end">Date</th>
+                </tr>
+              </thead>
+              <tbody>`;
+
+          allMembers.forEach(member => {
+            const contribution = contributionsMap.get(String(member.user));
+            
+            let displayName;
+            // Prioritize name from contribution record if it exists
+            if (contribution && contribution.member_name) {
+                displayName = contribution.member_name;
+            } else {
+                // Otherwise, try to build from the member record
+                displayName = (member.user_first_name && member.user_last_name)
+                    ? `${member.user_first_name} ${member.user_last_name}`.trim()
+                    : null; // Set to null if no name
+            }
+
+            // If no name could be found, use a generic placeholder. Never show the email.
+            if (!displayName) {
+                displayName = `Membre #${member.user}`;
+            }
+
+            let statusBadge = '<span class="badge bg-danger">Non payé</span>';
+            let paymentDate = '-';
+            let amount = '-';
+            let rowClass = 'table-light';
+
+            if (contribution) {
+                amount = contribution.amount ? formatCurrency(parseFloat(contribution.amount)) : '-';
+                const contributionDate = contribution.date || contribution.payment_date;
+                if (contributionDate) {
+                    paymentDate = new Date(contributionDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                }
+                switch (contribution.status) {
+                    case 'paid':
+                        statusBadge = '<span class="badge bg-success">Payé</span>';
+                        rowClass = '';
+                        break;
+                    case 'pending':
+                        statusBadge = '<span class="badge bg-warning text-dark">En attente</span>';
+                        rowClass = 'table-warning';
+                        break;
+                    case 'unpaid':
+                        statusBadge = '<span class="badge bg-danger">Impayé</span>';
+                        rowClass = 'table-danger';
+                        break;
+                    default:
+                        statusBadge = '<span class="badge bg-secondary">Inconnu</span>';
+                }
+            }
+            
+            contributionsHtml += `
+              <tr class="${rowClass}">
+                <td>${displayName}</td>
+                <td class="text-end">${amount}</td>
+                <td class="text-end">${statusBadge}</td>
+                <td class="text-end"><small class="text-muted">${paymentDate}</small></td>
+              </tr>`;
+          });
+
+          contributionsHtml += '</tbody></table>';
+
+          // 3. Assemble the accordion item
+          accordionItem.innerHTML = `
+            <h2 class="accordion-header" id="headingRound${roundNumber}">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRound${roundNumber}" aria-expanded="false" aria-controls="collapseRound${roundNumber}">
+                <div class="d-flex flex-column w-100">
+                  <div class="d-flex justify-content-between w-100">
+                    <span>Tour ${roundNumber} ${withdrawalSummary}</span>
+                    <span class="badge bg-primary">${paidCount}/${totalMembers} membres</span>
+                  </div>
+                  <div class="progress mt-1" style="height: 5px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: ${(paidCount / totalMembers) * 100}%" aria-valuenow="${paidCount}" aria-valuemin="0" aria-valuemax="${totalMembers}"></div>
+                  </div>
+                </div>
+              </button>
+            </h2>
+            <div id="collapseRound${roundNumber}" class="accordion-collapse collapse" aria-labelledby="headingRound${roundNumber}" data-bs-parent="#tonRoundsHistory">
+              <div class="accordion-body p-0">
+                ${withdrawalHtml}
+                <div class="p-3">
+                  <h6 class="text-muted mb-2">Détail des cotisations</h6>
+                  ${contributionsHtml}
                 </div>
               </div>
             </div>
           `;
-          tonRoundsHistory.innerHTML += accordionItem;
+          tonRoundsHistory.appendChild(accordionItem);
         });
       } else {
-        tonRoundsHistory.innerHTML = '<div class="text-muted text-center p-3">Aucun historique de tours disponible.</div>';
+        console.log('--- DEBUG: Aucune donnée de tour à afficher. ---');
+        tonRoundsHistory.innerHTML = '<div class="text-muted text-center p-3">Aucun historique de contributions disponible.</div>';
       }
 
       // Members table

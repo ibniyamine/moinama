@@ -1,0 +1,11 @@
+{
+  "apiKey": "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",
+  "baseURL": "https://openrouter.ai/api/v1",
+  "defaultModel": "openai/gpt-4o-mini",
+  "models": [
+    "openai/gpt-4o-mini",
+    "anthropic/claude-3.5-sonnet",
+    "mistralai/mistral-medium",
+    "meta-llama/llama-3.1-70b-instruct"
+  ]
+}

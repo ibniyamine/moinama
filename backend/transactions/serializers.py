@@ -5,11 +5,18 @@ from accounts.serializers import UserSerializer
 
 class ContributionSerializer(serializers.ModelSerializer):
     member = UserSerializer(read_only=True)
+    member_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Contribution
-        fields = ['id', 'tontine', 'member', 'amount', 'date', 'note', 'status']
-        read_only_fields = ['id', 'date']
+        fields = ['id', 'tontine', 'member', 'member_name', 'amount', 'date', 'note', 'status', 'round']
+        read_only_fields = ['id', 'date', 'member_name', 'round']
+
+    def get_member_name(self, obj):
+        if obj.member:
+            name = obj.member.get_full_name()
+            return name if name.strip() else obj.member.email
+        return "Utilisateur inconnu"
 
     def create(self, validated_data):
         request = self.context.get('request')
@@ -23,8 +30,8 @@ class WithdrawalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Withdrawal
-        fields = ['id', 'tontine', 'beneficiary', 'amount', 'date', 'note']
-        read_only_fields = ['id', 'date']
+        fields = ['id', 'tontine', 'beneficiary', 'amount', 'date', 'note', 'round']
+        read_only_fields = ['id', 'date', 'round']
 
     def create(self, validated_data):
         request = self.context.get('request')
