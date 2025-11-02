@@ -335,6 +335,13 @@ const App = (() => {
         // Créer la liste de checkboxes
         const checkboxList = $('#userCheckboxList');
         const searchInput = $('#userSearchInput');
+        const selectAllBtn = $('#selectAllBtn');
+        const userCountInfo = $('#userCountInfo');
+        const paginationInfo = $('#paginationInfo');
+        
+        const ITEMS_PER_PAGE = 50;
+        let currentPage = 1;
+        let currentFilteredUsers = availableUsers;
         
         // Mettre à jour le compteur de sélection
         const updateSelectedCount = () => {
@@ -343,13 +350,24 @@ const App = (() => {
             $('#selectedCount').textContent = count > 0 ? `(${count})` : '';
         };
         
-        const renderUserList = (users) => {
+        const renderUserList = (users, page = 1) => {
+            currentFilteredUsers = users;
+            currentPage = page;
+            
             if (users.length === 0) {
-                checkboxList.innerHTML = '<div class="text-center text-muted py-3">Aucun utilisateur disponible</div>';
+                checkboxList.innerHTML = '<div class="text-center text-muted py-3">Aucun utilisateur trouvé</div>';
+                userCountInfo.textContent = '0 utilisateur disponible';
+                paginationInfo.textContent = '';
                 return;
             }
             
-            checkboxList.innerHTML = users.map(u => {
+            // Pagination
+            const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+            const startIdx = (page - 1) * ITEMS_PER_PAGE;
+            const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, users.length);
+            const pageUsers = users.slice(startIdx, endIdx);
+            
+            checkboxList.innerHTML = pageUsers.map(u => {
                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
                 const display = fullName || u.email || u.phone;
                 const subtitle = fullName ? (u.phone || u.email) : '';
@@ -365,6 +383,40 @@ const App = (() => {
                 `;
             }).join('');
             
+            // Info
+            userCountInfo.textContent = `${users.length} utilisateur(s) disponible(s)`;
+            
+            // Pagination controls
+            if (totalPages > 1) {
+                let paginationHtml = `Affichage ${startIdx + 1}-${endIdx} sur ${users.length} | `;
+                if (page > 1) {
+                    paginationHtml += `<a href="#" class="page-link-prev">← Précédent</a> `;
+                }
+                paginationHtml += `Page ${page}/${totalPages}`;
+                if (page < totalPages) {
+                    paginationHtml += ` <a href="#" class="page-link-next">Suivant →</a>`;
+                }
+                paginationInfo.innerHTML = paginationHtml;
+                
+                // Event listeners for pagination
+                const prevLink = paginationInfo.querySelector('.page-link-prev');
+                const nextLink = paginationInfo.querySelector('.page-link-next');
+                if (prevLink) {
+                    prevLink.onclick = (e) => {
+                        e.preventDefault();
+                        renderUserList(currentFilteredUsers, currentPage - 1);
+                    };
+                }
+                if (nextLink) {
+                    nextLink.onclick = (e) => {
+                        e.preventDefault();
+                        renderUserList(currentFilteredUsers, currentPage + 1);
+                    };
+                }
+            } else {
+                paginationInfo.textContent = users.length > ITEMS_PER_PAGE ? `Affichage de tous les ${users.length} utilisateurs` : '';
+            }
+            
             // Ajouter les événements de changement pour mettre à jour le compteur
             $$('.user-checkbox', checkboxList).forEach(cb => {
                 cb.addEventListener('change', updateSelectedCount);
@@ -373,17 +425,41 @@ const App = (() => {
         
         renderUserList(availableUsers);
   
-        // Fonction de recherche
+        // Fonction de recherche avec debounce pour performance
+        let searchTimeout;
         searchInput.value = '';
         searchInput.oninput = (e) => {
-            const query = e.target.value.toLowerCase();
-            const filtered = availableUsers.filter(u => {
-                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
-                const email = (u.email || '').toLowerCase();
-                const phone = (u.phone || '').toLowerCase();
-                return fullName.includes(query) || email.includes(query) || phone.includes(query);
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = e.target.value.toLowerCase();
+                if (!query) {
+                    renderUserList(availableUsers);
+                    return;
+                }
+                const filtered = availableUsers.filter(u => {
+                    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+                    const email = (u.email || '').toLowerCase();
+                    const phone = (u.phone || '').toLowerCase();
+                    return fullName.includes(query) || email.includes(query) || phone.includes(query);
+                });
+                renderUserList(filtered);
+            }, 300); // Debounce de 300ms
+        };
+        
+        // Bouton "Tout sélectionner"
+        selectAllBtn.onclick = () => {
+            const allCheckboxes = $$('.user-checkbox', checkboxList);
+            const allChecked = allCheckboxes.every(cb => cb.checked);
+            
+            allCheckboxes.forEach(cb => {
+                cb.checked = !allChecked;
             });
-            renderUserList(filtered);
+            
+            selectAllBtn.innerHTML = allChecked 
+                ? '<i class="bi bi-check-all"></i> Tout sélectionner'
+                : '<i class="bi bi-x-lg"></i> Tout désélectionner';
+            
+            updateSelectedCount();
         };
         
         // Afficher la modale

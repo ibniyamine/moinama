@@ -497,14 +497,20 @@
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <input type="text" class="form-control" id="userSearchInput" placeholder="🔍 Rechercher un utilisateur...">
+              <input type="text" class="form-control" id="userSearchInput" placeholder="🔍 Rechercher par nom, email ou téléphone...">
             </div>
-            <div class="form-text mb-2">
-              <i class="bi bi-info-circle"></i> Cochez les utilisateurs à ajouter
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="form-text">
+                <i class="bi bi-info-circle"></i> <span id="userCountInfo">0 utilisateur(s) disponible(s)</span>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllBtn">
+                <i class="bi bi-check-all"></i> Tout sélectionner
+              </button>
             </div>
-            <div id="userCheckboxList" style="max-height: 300px; overflow-y: auto;">
+            <div id="userCheckboxList" style="max-height: 350px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.5rem;">
               <div class="text-center text-muted py-3">Chargement des utilisateurs...</div>
             </div>
+            <div class="text-muted small mt-2" id="paginationInfo"></div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
