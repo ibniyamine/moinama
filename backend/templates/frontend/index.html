@@ -489,19 +489,28 @@
 
     <!-- Add Member Modal -->
     <div class="modal fade" id="addMemberModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Ajouter un membre</h5>
+            <h5 class="modal-title">Ajouter des membres</h5>
             <button class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <p>Sélectionnez un utilisateur à ajouter à cette tontine.</p>
-            <select class="form-select" id="userSelect"></select>
+            <div class="mb-3">
+              <input type="text" class="form-control" id="userSearchInput" placeholder="🔍 Rechercher un utilisateur...">
+            </div>
+            <div class="form-text mb-2">
+              <i class="bi bi-info-circle"></i> Cochez les utilisateurs à ajouter
+            </div>
+            <div id="userCheckboxList" style="max-height: 300px; overflow-y: auto;">
+              <div class="text-center text-muted py-3">Chargement des utilisateurs...</div>
+            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-            <button class="btn btn-primary" id="confirmAddMemberBtn">Ajouter</button>
+            <button class="btn btn-primary" id="confirmAddMemberBtn">
+              <i class="bi bi-person-plus"></i> Ajouter <span id="selectedCount"></span>
+            </button>
           </div>
         </div>
       </div>

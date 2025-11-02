@@ -332,17 +332,64 @@ const App = (() => {
         const currentMemberIds = new Set(currentMembers.map(m => m.user));
         const availableUsers = allUsers.filter(u => !currentMemberIds.has(u.id) && u.id !== state.user?.id);
   
-        // Mettre à jour la liste déroulante
-        const select = $('#userSelect');
-        select.innerHTML = '<option value="">Sélectionnez un utilisateur</option>' +
-            availableUsers.map(u => {
+        // Créer la liste de checkboxes
+        const checkboxList = $('#userCheckboxList');
+        const searchInput = $('#userSearchInput');
+        
+        // Mettre à jour le compteur de sélection
+        const updateSelectedCount = () => {
+            const checked = $$('.user-checkbox:checked', checkboxList);
+            const count = checked.length;
+            $('#selectedCount').textContent = count > 0 ? `(${count})` : '';
+        };
+        
+        const renderUserList = (users) => {
+            if (users.length === 0) {
+                checkboxList.innerHTML = '<div class="text-center text-muted py-3">Aucun utilisateur disponible</div>';
+                return;
+            }
+            
+            checkboxList.innerHTML = users.map(u => {
                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-                const display = fullName ? `${fullName} (${u.phone || u.email})` : (u.phone || u.email);
-                return `<option value="${u.id}">${display}</option>`;
+                const display = fullName || u.email || u.phone;
+                const subtitle = fullName ? (u.phone || u.email) : '';
+                
+                return `
+                    <div class="form-check border-bottom py-2">
+                        <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user-${u.id}">
+                        <label class="form-check-label w-100" for="user-${u.id}">
+                            <div class="fw-medium">${display}</div>
+                            ${subtitle ? `<small class="text-muted">${subtitle}</small>` : ''}
+                        </label>
+                    </div>
+                `;
             }).join('');
+            
+            // Ajouter les événements de changement pour mettre à jour le compteur
+            $$('.user-checkbox', checkboxList).forEach(cb => {
+                cb.addEventListener('change', updateSelectedCount);
+            });
+        };
+        
+        renderUserList(availableUsers);
   
+        // Fonction de recherche
+        searchInput.value = '';
+        searchInput.oninput = (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = availableUsers.filter(u => {
+                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+                const email = (u.email || '').toLowerCase();
+                const phone = (u.phone || '').toLowerCase();
+                return fullName.includes(query) || email.includes(query) || phone.includes(query);
+            });
+            renderUserList(filtered);
+        };
+        
         // Afficher la modale
         const addMemberModal = new bootstrap.Modal($('#addMemberModal'));
+        
+        updateSelectedCount();
         
         // Nettoyer les anciens gestionnaires d'événements
         const confirmBtn = $('#confirmAddMemberBtn');
@@ -351,24 +398,50 @@ const App = (() => {
   
         // Ajouter le gestionnaire d'événement au nouveau bouton
         newConfirmBtn.onclick = async () => {
-            const userId = parseInt(select.value);
-            if (!userId) {
-                notify('Erreur', 'Veuillez sélectionner un utilisateur');
+            const checkedBoxes = $$('.user-checkbox:checked', checkboxList);
+            const userIds = checkedBoxes.map(cb => parseInt(cb.value));
+            
+            if (userIds.length === 0) {
+                notify('Erreur', 'Veuillez sélectionner au moins un utilisateur');
                 return;
             }
   
             try {
-                // 4. Appel Corrigé
-                await Api.addTontineMember(tontine.id, userId);
+                // Désactiver le bouton pendant le traitement
+                newConfirmBtn.disabled = true;
+                newConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Ajout en cours...';
                 
-                notify('Succès', 'Membre ajouté à la tontine avec succès.');
+                // Ajouter tous les membres sélectionnés
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (const userId of userIds) {
+                    try {
+                        await Api.addTontineMember(tontine.id, userId);
+                        successCount++;
+                    } catch (error) {
+                        console.error(`Erreur lors de l'ajout du membre ${userId}:`, error);
+                        errorCount++;
+                    }
+                }
+                
+                // Afficher le résultat
+                if (successCount > 0) {
+                    notify('Succès', `${successCount} membre(s) ajouté(s) avec succès${errorCount > 0 ? ` (${errorCount} échec(s))` : ''}.`);
+                } else {
+                    notify('Erreur', 'Impossible d\'ajouter les membres sélectionnés.');
+                }
+                
                 addMemberModal.hide();
                 
                 // Rafraîchir la vue détaillée
                 renderTontineDetail(tontine.id);
             } catch (error) {
-                console.error('Erreur lors de l\'ajout du membre:', error);
-                notify('Erreur', `Impossible d'ajouter le membre: ${error.message}`);
+                console.error('Erreur lors de l\'ajout des membres:', error);
+                notify('Erreur', `Impossible d'ajouter les membres: ${error.message}`);
+            } finally {
+                newConfirmBtn.disabled = false;
+                newConfirmBtn.innerHTML = '<i class="bi bi-person-plus"></i> Ajouter <span id="selectedCount"></span>';
             }
         };
   
