@@ -208,13 +208,13 @@ const App = (() => {
     const myContribList = $('#myContribList');
     const myWithdrawList = $('#myWithdrawList');
 
-    myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Chargement de vos contributions...</li>';
-    myWithdrawList.innerHTML = '<li class="list-group-item text-center text-muted">Chargement de vos retraits...</li>';
+    myContribList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Chargement...</td></tr>';
+    myWithdrawList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Chargement...</td></tr>';
 
     try {
       if (!state.user) {
-        myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Veuillez vous connecter pour voir vos contributions.</li>';
-        myWithdrawList.innerHTML = '<li class="list-group-item text-center text-muted">Veuillez vous connecter pour voir vos retraits.</li>';
+        myContribList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Veuillez vous connecter</td></tr>';
+        myWithdrawList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Veuillez vous connecter</td></tr>';
         return;
       }
 
@@ -224,33 +224,60 @@ const App = (() => {
       }
 
       const allContributions = await Api.getContributions({ status: 'paid' });
-      const myContributions = allContributions.filter(tx => tx.member.id === state.user.id); // Assuming tx.member exists and matches user.id
+      const myContributions = allContributions.filter(tx => tx.member.id === state.user.id);
 
+      const allWithdrawals = await Api.getWithdrawals();
+      const myWithdrawals = allWithdrawals.filter(tx => tx.beneficiary.id === state.user.id);
+
+      // Update KPIs
+      const totalContribAmount = myContributions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+      const totalWithdrawAmount = myWithdrawals.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+
+      $('#myKpiContribCount').textContent = myContributions.length;
+      $('#myKpiContribTotal').textContent = formatCurrency(totalContribAmount);
+      $('#myKpiWithdrawCount').textContent = myWithdrawals.length;
+      $('#myKpiWithdrawTotal').textContent = formatCurrency(totalWithdrawAmount);
+      $('#myContribBadge').textContent = myContributions.length;
+      $('#myWithdrawBadge').textContent = myWithdrawals.length;
+
+      // Render contributions table
       if (!myContributions.length) {
-        myContribList.innerHTML = '<li class="list-group-item text-center text-muted">Aucune contribution trouvée.</li>';
+        myContribList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Aucune contribution</td></tr>';
       } else {
         myContribList.innerHTML = myContributions.map(tx => {
-          const date = new Date(tx.date).toLocaleDateString('fr-FR');
+          const date = new Date(tx.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
           const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
           return `
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <div>
-                Contribution à <strong>${tontineName}</strong>
-                <div class="small text-muted">${date}</div>
-              </div>
-              <span class="text-success">+ ${formatCurrency(tx.amount)}</span>
-            </li>
+            <tr>
+              <td>${tontineName}</td>
+              <td class="text-end">${formatCurrency(tx.amount)}</td>
+              <td class="text-end"><small class="text-muted">${date}</small></td>
+            </tr>
           `;
         }).join('');
       }
 
-      // Placeholder for withdrawals - no API for it yet
-      myWithdrawList.innerHTML = '<li class="list-group-item text-center text-muted">Aucun retrait trouvé ou fonctionnalité non implémentée.</li>';
+      // Render withdrawals table
+      if (!myWithdrawals.length) {
+        myWithdrawList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Aucun retrait</td></tr>';
+      } else {
+        myWithdrawList.innerHTML = myWithdrawals.map(tx => {
+          const date = new Date(tx.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
+          return `
+            <tr>
+              <td>${tontineName}</td>
+              <td class="text-end">${formatCurrency(tx.amount)}</td>
+              <td class="text-end"><small class="text-muted">${date}</small></td>
+            </tr>
+          `;
+        }).join('');
+      }
 
     } catch (error) {
       console.error('Erreur lors du chargement du tableau de bord personnel:', error);
-      myContribList.innerHTML = `<li class="list-group-item text-center text-danger">Erreur: ${error.message}</li>`;
-      myWithdrawList.innerHTML = `<li class="list-group-item text-center text-danger">Erreur: ${error.message}</li>`;
+      myContribList.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Erreur: ${error.message}</td></tr>`;
+      myWithdrawList.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Erreur: ${error.message}</td></tr>`;
     }
   }
 

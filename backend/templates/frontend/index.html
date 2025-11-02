@@ -137,20 +137,87 @@
 
           <!-- Mon dashboard -->
           <section data-route="me" class="route">
+            <div class="row g-3 mb-3">
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Mes contributions</div>
+                    <div class="kpi-value" id="myKpiContribCount">0</div>
+                    <div class="kpi-trend text-muted"><i class="bi bi-cash-stack"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Total cotisé</div>
+                    <div class="kpi-value" id="myKpiContribTotal">0 FCFA</div>
+                    <div class="kpi-trend text-success"><i class="bi bi-arrow-up-right"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Mes retraits</div>
+                    <div class="kpi-value" id="myKpiWithdrawCount">0</div>
+                    <div class="kpi-trend text-muted"><i class="bi bi-wallet2"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                <div class="card kpi">
+                  <div class="card-body">
+                    <div class="kpi-label">Total reçu</div>
+                    <div class="kpi-value" id="myKpiWithdrawTotal">0 FCFA</div>
+                    <div class="kpi-trend text-primary"><i class="bi bi-arrow-down-right"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="row g-3">
               <div class="col-12 col-lg-6">
                 <div class="card">
-                  <div class="card-header">Mes contributions</div>
-                  <div class="card-body">
-                    <ul class="list-group list-group-flush" id="myContribList"></ul>
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Historique des contributions</span>
+                    <span class="badge bg-primary" id="myContribBadge">0</span>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Tontine</th>
+                            <th class="text-end">Montant</th>
+                            <th class="text-end">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody id="myContribList"></tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
               <div class="col-12 col-lg-6">
                 <div class="card">
-                  <div class="card-header">Mes retraits</div>
-                  <div class="card-body">
-                    <ul class="list-group list-group-flush" id="myWithdrawList"></ul>
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Historique des retraits</span>
+                    <span class="badge bg-success" id="myWithdrawBadge">0</span>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Tontine</th>
+                            <th class="text-end">Montant</th>
+                            <th class="text-end">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody id="myWithdrawList"></tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
