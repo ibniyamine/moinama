@@ -119,18 +119,14 @@ class TontineViewSet(viewsets.ModelViewSet):
         if Withdrawal.objects.filter(tontine=tontine, round=tontine.current_round).exists():
             return Response({'error': f'Un paiement a déjà eu lieu pour le tour {tontine.current_round}. Validez le tour pour commencer le suivant.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if all contributions for the current round are paid
-        active_members = tontine.memberships.filter(is_active=True)
+        # Calculate payout based on paid contributions
         paid_contributions = Contribution.objects.filter(
             tontine=tontine, 
             round=tontine.current_round, 
             status='paid'
         )
 
-        if paid_contributions.count() < active_members.count():
-            return Response({'error': 'Toutes les cotisations pour ce tour n\'ont pas été marquées comme payées.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Create withdrawal for the current round
+        # Create withdrawal for the current round with whatever amount has been paid
         payout_amount = paid_contributions.aggregate(total=Sum('amount'))['total'] or 0
         Withdrawal.objects.create(
             tontine=tontine,
@@ -146,7 +142,7 @@ class TontineViewSet(viewsets.ModelViewSet):
         tontine.designated_recipient = None
         tontine.save()
 
-        return Response({'message': f'Le paiement pour {winner_name} (Tour {tontine.current_round}) a été enregistré.'}, status=status.HTTP_200_OK)
+        return Response({'message': f'Le paiement de {payout_amount} pour {winner_name} (Tour {tontine.current_round}) a été enregistré.'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='validate-round', permission_classes=[permissions.IsAuthenticated, IsTontineAdminOrOwner])
     def validate_round(self, request, pk=None):
@@ -155,6 +151,13 @@ class TontineViewSet(viewsets.ModelViewSet):
         # Check if a payout has occurred for the current round
         if not Withdrawal.objects.filter(tontine=tontine, round=tontine.current_round).exists():
             return Response({'error': f'Impossible de valider. Le paiement pour le tour {tontine.current_round} n\'a pas encore été effectué.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Mark all pending contributions for the current round as 'unpaid'
+        Contribution.objects.filter(
+            tontine=tontine, 
+            round=tontine.current_round, 
+            status='pending'
+        ).update(status='unpaid')
 
         # Advance the round
         tontine.current_round += 1
