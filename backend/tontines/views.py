@@ -55,10 +55,7 @@ class TontineViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsTontineAdminOrOwner]
 
     def get_queryset(self):
-        user = self.request.user
-        return Tontine.objects.filter(
-            Q(owner=user) | Q(memberships__user=user, memberships__is_active=True)
-        ).distinct()
+        return Tontine.objects.all()
 
     def get_serializer_context(self):
         return {'request': self.request}

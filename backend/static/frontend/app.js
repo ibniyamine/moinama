@@ -317,6 +317,11 @@ const App = (() => {
         const col = document.createElement('div');
         col.className = 'col-12 col-md-6 col-xl-4';
 
+        let buttonHtml = '';
+        if (t.is_member) {
+          buttonHtml = `<button class="btn btn-sm btn-outline-info" data-action="view" data-id="${t.id}"><i class="bi bi-eye"></i> Voir plus</button>`;
+        }
+
         col.innerHTML = `
           <div class="card h-100">
             <div class="card-body d-flex flex-column">
@@ -326,7 +331,7 @@ const App = (() => {
               </div>
               <div class="small text-muted mb-2">Montant: <strong>${formatCurrency(t.amount)}</strong> · ${translateFrequency(t.frequency)}</div>
               <div class="mt-auto d-flex gap-2">
-                <button class="btn btn-sm btn-outline-info" data-action="view" data-id="${t.id}"><i class="bi bi-eye"></i> Voir plus</button>
+                ${buttonHtml}
               </div>
             </div>
           </div>`;

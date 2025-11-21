@@ -52,15 +52,25 @@ class TontineSerializer(serializers.ModelSerializer):
     has_contributed_this_round = serializers.SerializerMethodField() # Renamed
     withdrawals = WithdrawalSerializer(many=True, read_only=True)
     designated_recipient_details = serializers.SerializerMethodField()
+    is_member = serializers.SerializerMethodField()
 
     class Meta:
         model = Tontine
         fields = [
             'id', 'name', 'description', 'amount', 'frequency', 'start_date', 'end_date', 
             'owner', 'owner_email', 'created_at', 'members', 'has_contributed_this_round', # Renamed
-            'withdrawals', 'designated_recipient', 'designated_recipient_details', 'current_round' # Added current_round
+            'withdrawals', 'designated_recipient', 'designated_recipient_details', 'current_round', 'is_member'
         ]
         read_only_fields = ['id', 'created_at', 'owner', 'owner_email', 'members']
+
+    def get_is_member(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        # Check if the user is the owner or an active member
+        is_owner = obj.owner == request.user
+        is_active_member = obj.memberships.filter(user=request.user, is_active=True).exists()
+        return is_owner or is_active_member
 
     def get_designated_recipient_details(self, obj):
         if obj.designated_recipient:
