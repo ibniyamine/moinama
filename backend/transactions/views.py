@@ -329,3 +329,60 @@ class DashboardGlobalStatsView(APIView):
             },
             'upcoming_payments': upcoming_payments,
         }, status=status.HTTP_200_OK)
+
+
+class WithdrawalReciprocityView(APIView):
+    """
+    API pour calculer et afficher les informations de réciprocité pour un retrait.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, withdrawal_id, format=None):
+        withdrawal = get_object_or_404(Withdrawal, pk=withdrawal_id)
+        
+        # Vérifier les permissions
+        tontine = withdrawal.tontine
+        is_owner = tontine.owner == request.user
+        is_member = TontineMember.objects.filter(tontine=tontine, user=request.user, is_active=True).exists()
+        
+        if not (is_owner or is_member):
+            raise PermissionDenied("Vous n'avez pas la permission de voir ces informations.")
+        
+        # Calculer la réciprocité
+        reciprocity_data = withdrawal.calculate_eligible_amount()
+        
+        # Formater les données pour l'API
+        eligible_contributions_formatted = []
+        for contrib in reciprocity_data['eligible_contributions']:
+            user = contrib['contributor']
+            eligible_contributions_formatted.append({
+                'contributor_id': user.id,
+                'contributor_name': f"{user.first_name} {user.last_name}".strip() or user.email,
+                'amount': float(contrib['amount']),
+                'reason': contrib['reason']
+            })
+        
+        excluded_contributions_formatted = []
+        for contrib in reciprocity_data['excluded_contributions']:
+            user = contrib['contributor']
+            excluded_contributions_formatted.append({
+                'contributor_id': user.id,
+                'contributor_name': f"{user.first_name} {user.last_name}".strip() or user.email,
+                'amount': float(contrib['amount']),
+                'reason': contrib['reason']
+            })
+        
+        return Response({
+            'withdrawal_id': withdrawal.id,
+            'beneficiary': {
+                'id': withdrawal.beneficiary.id,
+                'name': f"{withdrawal.beneficiary.first_name} {withdrawal.beneficiary.last_name}".strip() or withdrawal.beneficiary.email
+            },
+            'round': withdrawal.round,
+            'total_amount': float(withdrawal.amount),
+            'eligible_amount': float(reciprocity_data['eligible_amount']),
+            'excluded_amount': float(withdrawal.amount - reciprocity_data['eligible_amount']),
+            'eligible_contributions': eligible_contributions_formatted,
+            'excluded_contributions': excluded_contributions_formatted,
+            'total_contributions_count': reciprocity_data['total_contributions']
+        }, status=status.HTTP_200_OK)

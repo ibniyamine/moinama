@@ -83,6 +83,7 @@ const Api = (() => {
       const query = new URLSearchParams(params).toString();
       return request(`/api/transactions/withdrawals/${query ? `?${query}` : ''}`);
     },
+    getWithdrawalReciprocity: (withdrawalId) => request(`/api/transactions/withdrawals/${withdrawalId}/reciprocity/`),
     getDashboardStats: () => request('/api/transactions/dashboard-stats/'),
   };
 })();
@@ -149,8 +150,20 @@ const App = (() => {
   let contribChartInstance = null;
 
   async function renderDashboardGlobal() {
+    const globalContribList = $('#globalContribList');
+    const globalWithdrawList = $('#globalWithdrawList');
+
+    // Set loading states
+    if (globalContribList) globalContribList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chargement...</td></tr>';
+    if (globalWithdrawList) globalWithdrawList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chargement...</td></tr>';
+
     try {
-      const stats = await Api.getDashboardStats();
+      // Fetch KPIs and transactions in parallel
+      const [stats, allContributions, allWithdrawals] = await Promise.all([
+        Api.getDashboardStats(),
+        Api.getContributions({ status: 'paid', ordering: '-date', limit: 10 }), // Fetch latest 10 paid contributions
+        Api.getWithdrawals({ ordering: '-date', limit: 10 }) // Fetch latest 10 withdrawals
+      ]);
 
       // Update KPIs
       $('#kpiTotalContrib').textContent = formatCurrency(stats.total_contributions);
@@ -158,49 +171,58 @@ const App = (() => {
       $('#kpiMembers').textContent = stats.total_members;
       $('#kpiActiveGroups').textContent = stats.total_active_tontines;
 
-      // Render Contribution Chart
-      const ctx = $('#contribChart').getContext('2d');
-      if (contribChartInstance) {
-        contribChartInstance.destroy();
+      // Ensure state.tontines is populated for displaying tontine names
+      if (!state.tontines || state.tontines.length === 0) {
+        state.tontines = await Api.getTontines();
       }
-      contribChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: stats.contribution_chart_data.labels,
-          datasets: [{
-            label: 'Contributions',
-            data: stats.contribution_chart_data.data,
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1,
-            fill: false
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
-        }
-      });
 
-      // Render Upcoming Payments (currently a placeholder)
-      const upcomingPaymentsList = $('#upcomingPayments');
-      if (stats.upcoming_payments.length === 0) {
-        upcomingPaymentsList.innerHTML = '<div class="list-group-item text-center text-muted">Aucun paiement à venir.</div>';
-      } else {
-        upcomingPaymentsList.innerHTML = stats.upcoming_payments.map(payment => `
-          <div class="list-group-item">
-            ${payment.description} - ${formatCurrency(payment.amount)}
-          </div>
-        `).join('');
+      // Render contributions table
+      if (globalContribList) {
+        if (!allContributions.length) {
+          globalContribList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Aucune contribution récente</td></tr>';
+        } else {
+          globalContribList.innerHTML = allContributions.map(tx => {
+            const date = new Date(tx.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
+            const memberName = `${tx.member.first_name || ''} ${tx.member.last_name || ''}`.trim() || tx.member.email;
+            return `
+              <tr>
+                <td>${memberName}</td>
+                <td>${tontineName}</td>
+                <td class="text-end">${formatCurrency(tx.amount)}</td>
+                <td class="text-end"><small class="text-muted">${date}</small></td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+
+      // Render withdrawals table
+      if (globalWithdrawList) {
+        if (!allWithdrawals.length) {
+          globalWithdrawList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Aucun retrait récent</td></tr>';
+        } else {
+          globalWithdrawList.innerHTML = allWithdrawals.map(tx => {
+            const date = new Date(tx.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const tontineName = state.tontines.find(t => t.id === tx.tontine)?.name || 'N/A';
+            const memberName = `${tx.beneficiary.first_name || ''} ${tx.beneficiary.last_name || ''}`.trim() || tx.beneficiary.email;
+            return `
+              <tr>
+                <td>${memberName}</td>
+                <td>${tontineName}</td>
+                <td class="text-end">${formatCurrency(tx.amount)}</td>
+                <td class="text-end"><small class="text-muted">${date}</small></td>
+              </tr>
+            `;
+          }).join('');
+        }
       }
 
     } catch (error) {
       console.error('Erreur lors du chargement du tableau de bord global:', error);
       notify('Erreur', `Impossible de charger les données du tableau de bord: ${error.message}`);
+      if (globalContribList) globalContribList.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Erreur: ${error.message}</td></tr>`;
+      if (globalWithdrawList) globalWithdrawList.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Erreur: ${error.message}</td></tr>`;
     }
   }
 
@@ -609,7 +631,7 @@ const App = (() => {
       const rounds = Object.keys(contributionsByRound).sort((a, b) => b - a);
 
       if (rounds.length > 0) {
-        rounds.forEach(roundNumber => {
+        for (const roundNumber of rounds) {
           const contributions = contributionsByRound[roundNumber];
           const paidContributions = contributions.filter(c => c.status === 'paid');
           const totalCollected = paidContributions.reduce((sum, c) => sum + parseFloat(c.amount), 0);
@@ -638,9 +660,35 @@ const App = (() => {
               `Membre #${withdrawal.beneficiary.id}`;
 
             withdrawalSummary = `- ${beneficiaryName}`;
+            
+            // Fetch reciprocity data if withdrawal has an ID
+            let reciprocityHtml = '';
+            if (withdrawal.id) {
+              try {
+                const reciprocity = await Api.getWithdrawalReciprocity(withdrawal.id);
+                const excludedAmount = reciprocity.excluded_amount || 0;
+                const excludedCount = reciprocity.excluded_contributions?.length || 0;
+                
+                if (excludedCount > 0) {
+                  reciprocityHtml = `
+                    <div class="alert alert-warning small mb-2">
+                      <i class="bi bi-exclamation-triangle"></i> <strong>Réciprocité appliquée :</strong>
+                      ${excludedCount} contribution(s) exclue(s) (${formatCurrency(excludedAmount)}) car le bénéficiaire n'avait pas cotisé pour ces membres.
+                      <button class="btn btn-sm btn-outline-warning ms-2" onclick="App.showReciprocityDetails(${withdrawal.id})">
+                        <i class="bi bi-info-circle"></i> Détails
+                      </button>
+                    </div>
+                  `;
+                }
+              } catch (error) {
+                console.error('Erreur lors de la récupération des données de réciprocité:', error);
+              }
+            }
+            
             withdrawalHtml = `
               <div class="p-3 border-bottom bg-light">
                 <h6 class="text-muted mb-2">Bénéficiaire du tour ${roundNumber}</h6>
+                ${reciprocityHtml}
                 <ul class="list-unstyled mb-0 small">
                   <li><strong>Bénéficiaire :</strong> ${beneficiaryName}</li>
                   <li><strong>Montant :</strong> ${formatCurrency(withdrawal.amount || 0)}</li>
@@ -763,7 +811,7 @@ const App = (() => {
             </div>
           `;
           tonRoundsHistory.appendChild(accordionItem);
-        });
+        }
       } else {
         console.log('--- DEBUG: Aucune donnée de tour à afficher. ---');
         tonRoundsHistory.innerHTML = '<div class="text-muted text-center p-3">Aucun historique de contributions disponible.</div>';
@@ -1260,7 +1308,112 @@ const App = (() => {
     routeTo();
   }
 
-  return { init };
+  async function showReciprocityDetails(withdrawalId) {
+    const modal = new bootstrap.Modal($('#reciprocityModal'));
+    const modalBody = $('#reciprocityModalBody');
+    
+    // Show loading state
+    modalBody.innerHTML = `
+      <div class="text-center py-3">
+        <div class="spinner-border" role="status"></div>
+        <p class="mt-2">Chargement des détails...</p>
+      </div>
+    `;
+    
+    modal.show();
+    
+    try {
+      const data = await Api.getWithdrawalReciprocity(withdrawalId);
+      
+      let html = `
+        <div class="mb-3">
+          <h6>Bénéficiaire : ${data.beneficiary.name}</h6>
+          <p class="text-muted small mb-0">Tour ${data.round}</p>
+        </div>
+        
+        <div class="row g-3 mb-4">
+          <div class="col-6">
+            <div class="card bg-success bg-opacity-10">
+              <div class="card-body">
+                <div class="small text-muted">Montant éligible</div>
+                <div class="h5 mb-0 text-success">${formatCurrency(data.eligible_amount)}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card bg-danger bg-opacity-10">
+              <div class="card-body">
+                <div class="small text-muted">Montant exclu</div>
+                <div class="h5 mb-0 text-danger">${formatCurrency(data.excluded_amount)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      if (data.eligible_contributions && data.eligible_contributions.length > 0) {
+        html += `
+          <div class="mb-3">
+            <h6 class="text-success"><i class="bi bi-check-circle"></i> Contributions acceptées (${data.eligible_contributions.length})</h6>
+            <div class="list-group">
+        `;
+        
+        data.eligible_contributions.forEach(contrib => {
+          const reasonText = contrib.reason === 'reciprocal' 
+            ? 'Réciprocité respectée' 
+            : 'Pas encore eu son tour';
+          html += `
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-medium">${contrib.contributor_name}</div>
+                <small class="text-muted">${reasonText}</small>
+              </div>
+              <span class="badge bg-success">${formatCurrency(contrib.amount)}</span>
+            </div>
+          `;
+        });
+        
+        html += `</div></div>`;
+      }
+      
+      if (data.excluded_contributions && data.excluded_contributions.length > 0) {
+        html += `
+          <div class="mb-3">
+            <h6 class="text-danger"><i class="bi bi-x-circle"></i> Contributions exclues (${data.excluded_contributions.length})</h6>
+            <div class="alert alert-warning small">
+              Ces membres ont cotisé pour ce tour, mais le bénéficiaire n'avait pas cotisé pour eux lors de leurs tours précédents.
+            </div>
+            <div class="list-group">
+        `;
+        
+        data.excluded_contributions.forEach(contrib => {
+          html += `
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-medium">${contrib.contributor_name}</div>
+                <small class="text-danger">Réciprocité non respectée</small>
+              </div>
+              <span class="badge bg-danger">${formatCurrency(contrib.amount)}</span>
+            </div>
+          `;
+        });
+        
+        html += `</div></div>`;
+      }
+      
+      modalBody.innerHTML = html;
+      
+    } catch (error) {
+      console.error('Erreur lors du chargement des détails de réciprocité:', error);
+      modalBody.innerHTML = `
+        <div class="alert alert-danger">
+          <i class="bi bi-exclamation-triangle"></i> Erreur lors du chargement des détails : ${error.message}
+        </div>
+      `;
+    }
+  }
+
+  return { init, showReciprocityDetails };
 })();
 
 window.addEventListener('DOMContentLoaded', App.init);

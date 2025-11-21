@@ -110,26 +110,45 @@
               </div>
             </div>
 
-            <div class="row g-3 mt-1">
-              <div class="col-12 col-lg-8">
-                <div class="card h-100">
-                  <div class="card-header d-flex align-items-center justify-content-between">
-                    <span>Flux des contributions</span>
-                    <div class="btn-group btn-group-sm" role="group">
-                      <button class="btn btn-outline-secondary active" data-range="30">30j</button>
-                      <button class="btn btn-outline-secondary" data-range="90">3m</button>
-                      <button class="btn btn-outline-secondary" data-range="365">1a</button>
+            <div class="row g-3 mt-3">
+              <div class="col-12 col-lg-6">
+                <div class="card">
+                  <div class="card-header">Dernières contributions</div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Membre</th>
+                            <th>Tontine</th>
+                            <th class="text-end">Montant</th>
+                            <th class="text-end">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody id="globalContribList"></tbody>
+                      </table>
                     </div>
-                  </div>
-                  <div class="card-body">
-                    <canvas id="contribChart" height="120"></canvas>
                   </div>
                 </div>
               </div>
-              <div class="col-12 col-lg-4">
-                <div class="card h-100">
-                  <div class="card-header">Prochaines échéances</div>
-                  <div class="list-group list-group-flush small" id="upcomingPayments"></div>
+              <div class="col-12 col-lg-6">
+                <div class="card">
+                  <div class="card-header">Derniers retraits</div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Membre</th>
+                            <th>Tontine</th>
+                            <th class="text-end">Montant</th>
+                            <th class="text-end">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody id="globalWithdrawList"></tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -623,8 +642,29 @@
       </div>
     </div>
 
+    <!-- Reciprocity Details Modal -->
+    <div class="modal fade" id="reciprocityModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Détails de la réciprocité</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="reciprocityModalBody">
+            <div class="text-center py-3">
+              <div class="spinner-border" role="status"></div>
+              <p class="mt-2">Chargement...</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="{% static 'frontend/app.js' %}?v=1.18"></script>
+    <script src="{% static 'frontend/app.js' %}?v=1.20"></script>
   </body>
 </html>
