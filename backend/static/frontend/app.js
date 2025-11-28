@@ -1,20 +1,17 @@
 
 const Api = (() => {
   async function request(url, method = 'GET', data = null) {
-    const token = localStorage.getItem('moinama.auth.access'); // Get token from localStorage
-    console.log('Token from localStorage:', token ? 'Token found' : 'No token found');
-    
+    const token = localStorage.getItem('moinama.auth.access'); // Get token from localStorage (optional for JWT)
+
     const headers = {
       'Content-Type': 'application/json',
     };
-    
-    // Add Authorization header if token exists
+
+    // Add Authorization header if token exists (for JWT authentication)
     if (token) {
-      console.log('Adding Authorization header with token');
       headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn('No authentication token found in localStorage');
     }
+    // Note: SessionAuthentication works automatically via cookies, no token needed
 
     // Add X-CSRFToken for non-GET requests
     if (method !== 'GET') {
@@ -37,19 +34,19 @@ const Api = (() => {
       const errorData = await response.json().catch(() => ({}));
       let errorMessage = errorData.detail;
       if (!errorMessage) {
-          const fieldErrors = Object.entries(errorData).map(([field, messages]) => {
-              const msgArray = Array.isArray(messages) ? messages : [messages];
-              return `${field}: ${msgArray.join(' ')}`;
-          });
-          errorMessage = fieldErrors.join('; ');
+        const fieldErrors = Object.entries(errorData).map(([field, messages]) => {
+          const msgArray = Array.isArray(messages) ? messages : [messages];
+          return `${field}: ${msgArray.join(' ')} `;
+        });
+        errorMessage = fieldErrors.join('; ');
       }
       if (!errorMessage) {
-          errorMessage = `Request failed with status ${response.status}`;
+        errorMessage = `Request failed with status ${response.status} `;
       }
       throw new Error(errorMessage);
     }
     if (response.status === 204) {
-        return null;
+      return null;
     }
     return response.json();
   }
@@ -63,6 +60,7 @@ const Api = (() => {
     login: (data) => request('/api/auth/token/', 'POST', data), // Added login function
     getMe: () => request('/api/accounts/me/'),
     getUsers: () => request('/api/accounts/users/'),
+    redeemCode: (code) => request('/api/accounts/redeem-code/', 'POST', { code }),
     getTontines: () => request('/api/tontines/'),
     createTontine: (data) => request('/api/tontines/', 'POST', data),
     getTontineDetail: (id) => request(`/api/tontines/${id}/`),
@@ -99,7 +97,7 @@ const App = (() => {
     localStorage.setItem('moinama.theme', theme);
     $('#darkModeSwitch').checked = theme === 'dark';
   }
-  
+
   function initTheme() {
     const saved = localStorage.getItem('moinama.theme') || 'light';
     setTheme(saved);
@@ -112,9 +110,9 @@ const App = (() => {
 
   function translateFrequency(freq) {
     const map = {
-        'daily': 'Quotidienne',
-        'weekly': 'Hebdomadaire',
-        'monthly': 'Mensuelle'
+      'daily': 'Quotidienne',
+      'weekly': 'Hebdomadaire',
+      'monthly': 'Mensuelle'
     };
     return map[freq] || freq;
   }
@@ -122,7 +120,7 @@ const App = (() => {
   function routeTo(hash) {
     const raw = (hash || location.hash || '#/dashboard');
     $$('.route').forEach(s => s.classList.remove('active'));
-    
+
     if (raw.startsWith('#/tontine/')) {
       const tonId = raw.split('#/tontine/')[1];
       $('[data-route="tontine-detail"]').classList.add('active');
@@ -132,13 +130,13 @@ const App = (() => {
       return;
     }
 
-    const target = raw.replace('#/','');
+    const target = raw.replace('#/', '');
     const el = document.querySelector(`[data-route="${target}"]`);
     if (el) el.classList.add('active');
-    
+
     $$('#navLinks .nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#/${target}`));
     $('.page-title').textContent = {
-      dashboard:'Dashboard global', me:'Mon dashboard', tontines:'Tontines', transactions:'Transactions', messaging:'Messagerie'
+      dashboard: 'Dashboard global', me: 'Mon dashboard', tontines: 'Tontines', transactions: 'Transactions', messaging: 'Messagerie'
     }[target] || 'Moinama';
 
     if (target === 'tontines') renderTontines();
@@ -349,57 +347,57 @@ const App = (() => {
 
   async function handleAddMember(tontine) {
     try {
-        // Récupérer la liste des utilisateurs et des membres actuels en parallèle
-        const [allUsers, currentMembers] = await Promise.all([
-            Api.getUsers(),
-            Api.getTontineMembers(tontine.id)
-        ]);
-        
-        // Filtrer les utilisateurs qui ne sont pas déjà membres
-        const currentMemberIds = new Set(currentMembers.map(m => m.user));
-        const availableUsers = allUsers.filter(u => !currentMemberIds.has(u.id) && u.id !== state.user?.id);
-  
-        // Créer la liste de checkboxes
-        const checkboxList = $('#userCheckboxList');
-        const searchInput = $('#userSearchInput');
-        const selectAllBtn = $('#selectAllBtn');
-        const userCountInfo = $('#userCountInfo');
-        const paginationInfo = $('#paginationInfo');
-        
-        const ITEMS_PER_PAGE = 50;
-        let currentPage = 1;
-        let currentFilteredUsers = availableUsers;
-        
-        // Mettre à jour le compteur de sélection
-        const updateSelectedCount = () => {
-            const checked = $$('.user-checkbox:checked', checkboxList);
-            const count = checked.length;
-            $('#selectedCount').textContent = count > 0 ? `(${count})` : '';
-        };
-        
-        const renderUserList = (users, page = 1) => {
-            currentFilteredUsers = users;
-            currentPage = page;
-            
-            if (users.length === 0) {
-                checkboxList.innerHTML = '<div class="text-center text-muted py-3">Aucun utilisateur trouvé</div>';
-                userCountInfo.textContent = '0 utilisateur disponible';
-                paginationInfo.textContent = '';
-                return;
-            }
-            
-            // Pagination
-            const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
-            const startIdx = (page - 1) * ITEMS_PER_PAGE;
-            const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, users.length);
-            const pageUsers = users.slice(startIdx, endIdx);
-            
-            checkboxList.innerHTML = pageUsers.map(u => {
-                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-                const display = fullName || u.email || u.phone;
-                const subtitle = fullName ? (u.phone || u.email) : '';
-                
-                return `
+      // Récupérer la liste des utilisateurs et des membres actuels en parallèle
+      const [allUsers, currentMembers] = await Promise.all([
+        Api.getUsers(),
+        Api.getTontineMembers(tontine.id)
+      ]);
+
+      // Filtrer les utilisateurs qui ne sont pas déjà membres
+      const currentMemberIds = new Set(currentMembers.map(m => m.user));
+      const availableUsers = allUsers.filter(u => !currentMemberIds.has(u.id) && u.id !== state.user?.id);
+
+      // Créer la liste de checkboxes
+      const checkboxList = $('#userCheckboxList');
+      const searchInput = $('#userSearchInput');
+      const selectAllBtn = $('#selectAllBtn');
+      const userCountInfo = $('#userCountInfo');
+      const paginationInfo = $('#paginationInfo');
+
+      const ITEMS_PER_PAGE = 50;
+      let currentPage = 1;
+      let currentFilteredUsers = availableUsers;
+
+      // Mettre à jour le compteur de sélection
+      const updateSelectedCount = () => {
+        const checked = $$('.user-checkbox:checked', checkboxList);
+        const count = checked.length;
+        $('#selectedCount').textContent = count > 0 ? `(${count})` : '';
+      };
+
+      const renderUserList = (users, page = 1) => {
+        currentFilteredUsers = users;
+        currentPage = page;
+
+        if (users.length === 0) {
+          checkboxList.innerHTML = '<div class="text-center text-muted py-3">Aucun utilisateur trouvé</div>';
+          userCountInfo.textContent = '0 utilisateur disponible';
+          paginationInfo.textContent = '';
+          return;
+        }
+
+        // Pagination
+        const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+        const startIdx = (page - 1) * ITEMS_PER_PAGE;
+        const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, users.length);
+        const pageUsers = users.slice(startIdx, endIdx);
+
+        checkboxList.innerHTML = pageUsers.map(u => {
+          const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+          const display = fullName || u.email || u.phone;
+          const subtitle = fullName ? (u.phone || u.email) : '';
+
+          return `
                     <div class="form-check border-bottom py-2">
                         <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user-${u.id}">
                         <label class="form-check-label w-100" for="user-${u.id}">
@@ -408,151 +406,151 @@ const App = (() => {
                         </label>
                     </div>
                 `;
-            }).join('');
-            
-            // Info
-            userCountInfo.textContent = `${users.length} utilisateur(s) disponible(s)`;
-            
-            // Pagination controls
-            if (totalPages > 1) {
-                let paginationHtml = `Affichage ${startIdx + 1}-${endIdx} sur ${users.length} | `;
-                if (page > 1) {
-                    paginationHtml += `<a href="#" class="page-link-prev">← Précédent</a> `;
-                }
-                paginationHtml += `Page ${page}/${totalPages}`;
-                if (page < totalPages) {
-                    paginationHtml += ` <a href="#" class="page-link-next">Suivant →</a>`;
-                }
-                paginationInfo.innerHTML = paginationHtml;
-                
-                // Event listeners for pagination
-                const prevLink = paginationInfo.querySelector('.page-link-prev');
-                const nextLink = paginationInfo.querySelector('.page-link-next');
-                if (prevLink) {
-                    prevLink.onclick = (e) => {
-                        e.preventDefault();
-                        renderUserList(currentFilteredUsers, currentPage - 1);
-                    };
-                }
-                if (nextLink) {
-                    nextLink.onclick = (e) => {
-                        e.preventDefault();
-                        renderUserList(currentFilteredUsers, currentPage + 1);
-                    };
-                }
-            } else {
-                paginationInfo.textContent = users.length > ITEMS_PER_PAGE ? `Affichage de tous les ${users.length} utilisateurs` : '';
-            }
-            
-            // Ajouter les événements de changement pour mettre à jour le compteur
-            $$('.user-checkbox', checkboxList).forEach(cb => {
-                cb.addEventListener('change', updateSelectedCount);
-            });
-        };
-        
-        renderUserList(availableUsers);
-  
-        // Fonction de recherche avec debounce pour performance
-        let searchTimeout;
-        searchInput.value = '';
-        searchInput.oninput = (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const query = e.target.value.toLowerCase();
-                if (!query) {
-                    renderUserList(availableUsers);
-                    return;
-                }
-                const filtered = availableUsers.filter(u => {
-                    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
-                    const email = (u.email || '').toLowerCase();
-                    const phone = (u.phone || '').toLowerCase();
-                    return fullName.includes(query) || email.includes(query) || phone.includes(query);
-                });
-                renderUserList(filtered);
-            }, 300); // Debounce de 300ms
-        };
-        
-        // Bouton "Tout sélectionner"
-        selectAllBtn.onclick = () => {
-            const allCheckboxes = $$('.user-checkbox', checkboxList);
-            const allChecked = allCheckboxes.every(cb => cb.checked);
-            
-            allCheckboxes.forEach(cb => {
-                cb.checked = !allChecked;
-            });
-            
-            selectAllBtn.innerHTML = allChecked 
-                ? '<i class="bi bi-check-all"></i> Tout sélectionner'
-                : '<i class="bi bi-x-lg"></i> Tout désélectionner';
-            
-            updateSelectedCount();
-        };
-        
-        // Afficher la modale
-        const addMemberModal = new bootstrap.Modal($('#addMemberModal'));
-        
+        }).join('');
+
+        // Info
+        userCountInfo.textContent = `${users.length} utilisateur(s) disponible(s)`;
+
+        // Pagination controls
+        if (totalPages > 1) {
+          let paginationHtml = `Affichage ${startIdx + 1}-${endIdx} sur ${users.length} | `;
+          if (page > 1) {
+            paginationHtml += `<a href="#" class="page-link-prev">← Précédent</a> `;
+          }
+          paginationHtml += `Page ${page}/${totalPages}`;
+          if (page < totalPages) {
+            paginationHtml += ` <a href="#" class="page-link-next">Suivant →</a>`;
+          }
+          paginationInfo.innerHTML = paginationHtml;
+
+          // Event listeners for pagination
+          const prevLink = paginationInfo.querySelector('.page-link-prev');
+          const nextLink = paginationInfo.querySelector('.page-link-next');
+          if (prevLink) {
+            prevLink.onclick = (e) => {
+              e.preventDefault();
+              renderUserList(currentFilteredUsers, currentPage - 1);
+            };
+          }
+          if (nextLink) {
+            nextLink.onclick = (e) => {
+              e.preventDefault();
+              renderUserList(currentFilteredUsers, currentPage + 1);
+            };
+          }
+        } else {
+          paginationInfo.textContent = users.length > ITEMS_PER_PAGE ? `Affichage de tous les ${users.length} utilisateurs` : '';
+        }
+
+        // Ajouter les événements de changement pour mettre à jour le compteur
+        $$('.user-checkbox', checkboxList).forEach(cb => {
+          cb.addEventListener('change', updateSelectedCount);
+        });
+      };
+
+      renderUserList(availableUsers);
+
+      // Fonction de recherche avec debounce pour performance
+      let searchTimeout;
+      searchInput.value = '';
+      searchInput.oninput = (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          const query = e.target.value.toLowerCase();
+          if (!query) {
+            renderUserList(availableUsers);
+            return;
+          }
+          const filtered = availableUsers.filter(u => {
+            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+            const email = (u.email || '').toLowerCase();
+            const phone = (u.phone || '').toLowerCase();
+            return fullName.includes(query) || email.includes(query) || phone.includes(query);
+          });
+          renderUserList(filtered);
+        }, 300); // Debounce de 300ms
+      };
+
+      // Bouton "Tout sélectionner"
+      selectAllBtn.onclick = () => {
+        const allCheckboxes = $$('.user-checkbox', checkboxList);
+        const allChecked = allCheckboxes.every(cb => cb.checked);
+
+        allCheckboxes.forEach(cb => {
+          cb.checked = !allChecked;
+        });
+
+        selectAllBtn.innerHTML = allChecked
+          ? '<i class="bi bi-check-all"></i> Tout sélectionner'
+          : '<i class="bi bi-x-lg"></i> Tout désélectionner';
+
         updateSelectedCount();
-        
-        // Nettoyer les anciens gestionnaires d'événements
-        const confirmBtn = $('#confirmAddMemberBtn');
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-  
-        // Ajouter le gestionnaire d'événement au nouveau bouton
-        newConfirmBtn.onclick = async () => {
-            const checkedBoxes = $$('.user-checkbox:checked', checkboxList);
-            const userIds = checkedBoxes.map(cb => parseInt(cb.value));
-            
-            if (userIds.length === 0) {
-                notify('Erreur', 'Veuillez sélectionner au moins un utilisateur');
-                return;
-            }
-  
+      };
+
+      // Afficher la modale
+      const addMemberModal = new bootstrap.Modal($('#addMemberModal'));
+
+      updateSelectedCount();
+
+      // Nettoyer les anciens gestionnaires d'événements
+      const confirmBtn = $('#confirmAddMemberBtn');
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+      // Ajouter le gestionnaire d'événement au nouveau bouton
+      newConfirmBtn.onclick = async () => {
+        const checkedBoxes = $$('.user-checkbox:checked', checkboxList);
+        const userIds = checkedBoxes.map(cb => parseInt(cb.value));
+
+        if (userIds.length === 0) {
+          notify('Erreur', 'Veuillez sélectionner au moins un utilisateur');
+          return;
+        }
+
+        try {
+          // Désactiver le bouton pendant le traitement
+          newConfirmBtn.disabled = true;
+          newConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Ajout en cours...';
+
+          // Ajouter tous les membres sélectionnés
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const userId of userIds) {
             try {
-                // Désactiver le bouton pendant le traitement
-                newConfirmBtn.disabled = true;
-                newConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Ajout en cours...';
-                
-                // Ajouter tous les membres sélectionnés
-                let successCount = 0;
-                let errorCount = 0;
-                
-                for (const userId of userIds) {
-                    try {
-                        await Api.addTontineMember(tontine.id, userId);
-                        successCount++;
-                    } catch (error) {
-                        console.error(`Erreur lors de l'ajout du membre ${userId}:`, error);
-                        errorCount++;
-                    }
-                }
-                
-                // Afficher le résultat
-                if (successCount > 0) {
-                    notify('Succès', `${successCount} membre(s) ajouté(s) avec succès${errorCount > 0 ? ` (${errorCount} échec(s))` : ''}.`);
-                } else {
-                    notify('Erreur', 'Impossible d\'ajouter les membres sélectionnés.');
-                }
-                
-                addMemberModal.hide();
-                
-                // Rafraîchir la vue détaillée
-                renderTontineDetail(tontine.id);
+              await Api.addTontineMember(tontine.id, userId);
+              successCount++;
             } catch (error) {
-                console.error('Erreur lors de l\'ajout des membres:', error);
-                notify('Erreur', `Impossible d'ajouter les membres: ${error.message}`);
-            } finally {
-                newConfirmBtn.disabled = false;
-                newConfirmBtn.innerHTML = '<i class="bi bi-person-plus"></i> Ajouter <span id="selectedCount"></span>';
+              console.error(`Erreur lors de l'ajout du membre ${userId}:`, error);
+              errorCount++;
             }
-        };
-  
-        // Afficher la modale
-        addMemberModal.show();
+          }
+
+          // Afficher le résultat
+          if (successCount > 0) {
+            notify('Succès', `${successCount} membre(s) ajouté(s) avec succès${errorCount > 0 ? ` (${errorCount} échec(s))` : ''}.`);
+          } else {
+            notify('Erreur', 'Impossible d\'ajouter les membres sélectionnés.');
+          }
+
+          addMemberModal.hide();
+
+          // Rafraîchir la vue détaillée
+          renderTontineDetail(tontine.id);
+        } catch (error) {
+          console.error('Erreur lors de l\'ajout des membres:', error);
+          notify('Erreur', `Impossible d'ajouter les membres: ${error.message}`);
+        } finally {
+          newConfirmBtn.disabled = false;
+          newConfirmBtn.innerHTML = '<i class="bi bi-person-plus"></i> Ajouter <span id="selectedCount"></span>';
+        }
+      };
+
+      // Afficher la modale
+      addMemberModal.show();
     } catch (error) {
-        console.error('Erreur lors du chargement des utilisateurs:', error);
-        notify('Erreur', `Impossible de charger la liste des utilisateurs: ${error.message}`);
+      console.error('Erreur lors du chargement des utilisateurs:', error);
+      notify('Erreur', `Impossible de charger la liste des utilisateurs: ${error.message}`);
     }
   }
 
@@ -628,10 +626,10 @@ const App = (() => {
 
       // Récupérer les données des contributions par tour
       const contributionsByRound = await Api.getContributions({ tontine_id: id });
-      
+
       // Récupérer les membres pour afficher les non-contributeurs
       const allMembers = await Api.getTontineMembers(id);
-      
+
       // Trier les tours par ordre décroissant
       const rounds = Object.keys(contributionsByRound).sort((a, b) => b - a);
 
@@ -655,17 +653,17 @@ const App = (() => {
           if (withdrawal && withdrawal.beneficiary) {
             const withdrawalDate = withdrawal.date
               ? new Date(withdrawal.date).toLocaleDateString('fr-FR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                })
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              })
               : '-';
             const beneficiaryName = `${withdrawal.beneficiary.first_name || ''} ${withdrawal.beneficiary.last_name || ''}`.trim() ||
               withdrawal.beneficiary.email ||
               `Membre #${withdrawal.beneficiary.id}`;
 
             withdrawalSummary = `- ${beneficiaryName}`;
-            
+
             // Fetch reciprocity data if withdrawal has an ID
             let reciprocityHtml = '';
             if (withdrawal.id) {
@@ -673,7 +671,7 @@ const App = (() => {
                 const reciprocity = await Api.getWithdrawalReciprocity(withdrawal.id);
                 const excludedAmount = reciprocity.excluded_amount || 0;
                 const excludedCount = reciprocity.excluded_contributions?.length || 0;
-                
+
                 if (excludedCount > 0) {
                   reciprocityHtml = `
                     <div class="alert alert-warning small mb-2">
@@ -689,7 +687,7 @@ const App = (() => {
                 console.error('Erreur lors de la récupération des données de réciprocité:', error);
               }
             }
-            
+
             withdrawalHtml = `
               <div class="p-3 border-bottom bg-light">
                 <h6 class="text-muted mb-2">Bénéficiaire du tour ${roundNumber}</h6>
@@ -733,21 +731,21 @@ const App = (() => {
 
           allMembers.forEach(member => {
             const contribution = contributionsMap.get(String(member.user));
-            
+
             let displayName;
             // Prioritize name from contribution record if it exists
             if (contribution && contribution.member_name) {
-                displayName = contribution.member_name;
+              displayName = contribution.member_name;
             } else {
-                // Otherwise, try to build from the member record
-                displayName = (member.user_first_name && member.user_last_name)
-                    ? `${member.user_first_name} ${member.user_last_name}`.trim()
-                    : null; // Set to null if no name
+              // Otherwise, try to build from the member record
+              displayName = (member.user_first_name && member.user_last_name)
+                ? `${member.user_first_name} ${member.user_last_name}`.trim()
+                : null; // Set to null if no name
             }
 
             // If no name could be found, use a generic placeholder. Never show the email.
             if (!displayName) {
-                displayName = `Membre #${member.user}`;
+              displayName = `Membre #${member.user}`;
             }
 
             let statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Non payé</span>';
@@ -756,29 +754,29 @@ const App = (() => {
             let rowClass = 'table-light';
 
             if (contribution) {
-                amount = contribution.amount ? formatCurrency(parseFloat(contribution.amount)) : '-';
-                const contributionDate = contribution.date || contribution.payment_date;
-                if (contributionDate) {
-                    paymentDate = new Date(contributionDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                }
-                switch (contribution.status) {
-                    case 'paid':
-                        statusBadge = '<span class="badge rounded-pill border border-success text-success bg-transparent">Payé</span>';
-                        rowClass = '';
-                        break;
-                    case 'pending':
-                        statusBadge = '<span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente</span>';
-                        rowClass = 'table-warning';
-                        break;
-                    case 'unpaid':
-                        statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Impayé</span>';
-                        rowClass = 'table-danger';
-                        break;
-                    default:
-                        statusBadge = '<span class="badge rounded-pill border border-secondary text-secondary bg-transparent">Inconnu</span>';
-                }
+              amount = contribution.amount ? formatCurrency(parseFloat(contribution.amount)) : '-';
+              const contributionDate = contribution.date || contribution.payment_date;
+              if (contributionDate) {
+                paymentDate = new Date(contributionDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              }
+              switch (contribution.status) {
+                case 'paid':
+                  statusBadge = '<span class="badge rounded-pill border border-success text-success bg-transparent">Payé</span>';
+                  rowClass = '';
+                  break;
+                case 'pending':
+                  statusBadge = '<span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente</span>';
+                  rowClass = 'table-warning';
+                  break;
+                case 'unpaid':
+                  statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Impayé</span>';
+                  rowClass = 'table-danger';
+                  break;
+                default:
+                  statusBadge = '<span class="badge rounded-pill border border-secondary text-secondary bg-transparent">Inconnu</span>';
+              }
             }
-            
+
             contributionsHtml += `
               <tr class="${rowClass}">
                 <td>${displayName}</td>
@@ -836,27 +834,27 @@ const App = (() => {
         // The backend now sends status: 'pending', 'paid', or 'unpaid'.
         // 'unpaid' is also used when no contribution has been made for the period.
         switch (mStatus.status) {
-            case 'paid':
-                statusHtml = '<span class="badge bg-success">Payé</span>';
-                break;
-            case 'pending':
-                statusHtml = '<span class="badge bg-warning">En attente</span>';
-                break;
-            case 'unpaid':
-                statusHtml = '<span class="badge bg-danger">Non payé</span>';
-                break;
-            default:
-                statusHtml = '<span class="badge bg-secondary">Inconnu</span>';
+          case 'paid':
+            statusHtml = '<span class="badge bg-success">Payé</span>';
+            break;
+          case 'pending':
+            statusHtml = '<span class="badge bg-warning">En attente</span>';
+            break;
+          case 'unpaid':
+            statusHtml = '<span class="badge bg-danger">Non payé</span>';
+            break;
+          default:
+            statusHtml = '<span class="badge bg-secondary">Inconnu</span>';
         }
 
         if (mStatus.is_late && mStatus.status !== 'paid') {
-            statusHtml += ' <span class="badge bg-danger">En retard</span>';
+          statusHtml += ' <span class="badge bg-danger">En retard</span>';
         }
 
         const isOwner = state.user && tontine.owner === state.user.id;
         let actionButtons = '';
         if (isOwner && mStatus.status === 'pending' && mStatus.last_contribution_id) {
-            actionButtons = `
+          actionButtons = `
                 <div class="btn-group btn-group-sm" role="group">
                     <button class="btn btn-outline-success" data-action="mark-paid" data-contribution-id="${mStatus.last_contribution_id}">
                         <i class="bi bi-check-circle"></i> Payer
@@ -886,12 +884,12 @@ const App = (() => {
       // --- Event Listeners for new status buttons ---
       const updateContributionStatus = async (contributionId, newStatus) => {
         try {
-            await Api.patch(`/api/transactions/contributions/${contributionId}/`, { status: newStatus });
-            notify('Succès', `Contribution mise à jour: ${newStatus}.`);
-            renderTontineDetail(tontine.id); // Refresh view
+          await Api.patch(`/api/transactions/contributions/${contributionId}/`, { status: newStatus });
+          notify('Succès', `Contribution mise à jour: ${newStatus}.`);
+          renderTontineDetail(tontine.id); // Refresh view
         } catch (error) {
-            console.error('Erreur lors de la mise à jour du statut:', error);
-            notify('Erreur', `Impossible de mettre à jour: ${error.message}`);
+          console.error('Erreur lors de la mise à jour du statut:', error);
+          notify('Erreur', `Impossible de mettre à jour: ${error.message}`);
         }
       };
 
@@ -938,87 +936,87 @@ const App = (() => {
         tonRoundBanner.textContent = `Tour Actuel : ${tontine.current_round} / ${contributionStatus.total_rounds}`;
 
         if (tontine.designated_recipient) {
-            // STATE: READY FOR PAYOUT
-            payoutBtn.classList.remove('d-none');
-            const recipientName = tontine.designated_recipient_details?.name || 'le bénéficiaire désigné';
-            payoutBtn.innerHTML = `<i class="bi bi-check2-circle"></i> Payer ${recipientName} pour le tour ${tontine.current_round}`;
-            payoutBtn.disabled = false;
-            payoutBtn.onclick = async () => {
-                payoutBtn.disabled = true;
-                try {
-                    const result = await Api.processPayout(tontine.id);
-                    notify('Succès', result.message || 'Paiement effectué avec succès.');
-                    renderTontineDetail(tontine.id);
-                } catch (error) {
-                    notify('Erreur', `Impossible d'effectuer le paiement: ${error.message}`);
-                    payoutBtn.disabled = false;
-                }
-            };
+          // STATE: READY FOR PAYOUT
+          payoutBtn.classList.remove('d-none');
+          const recipientName = tontine.designated_recipient_details?.name || 'le bénéficiaire désigné';
+          payoutBtn.innerHTML = `<i class="bi bi-check2-circle"></i> Payer ${recipientName} pour le tour ${tontine.current_round}`;
+          payoutBtn.disabled = false;
+          payoutBtn.onclick = async () => {
+            payoutBtn.disabled = true;
+            try {
+              const result = await Api.processPayout(tontine.id);
+              notify('Succès', result.message || 'Paiement effectué avec succès.');
+              renderTontineDetail(tontine.id);
+            } catch (error) {
+              notify('Erreur', `Impossible d'effectuer le paiement: ${error.message}`);
+              payoutBtn.disabled = false;
+            }
+          };
 
         } else if (payoutDoneForCurrentRound) {
-            // STATE: READY TO VALIDATE
-            if (roundsLeft) {
-                validateBtn.classList.remove('d-none');
+          // STATE: READY TO VALIDATE
+          if (roundsLeft) {
+            validateBtn.classList.remove('d-none');
+            validateBtn.disabled = false;
+            validateBtn.onclick = async () => {
+              validateBtn.disabled = true;
+              try {
+                const result = await Api.validateRound(tontine.id);
+                notify('Succès', result.message || 'Tour validé.');
+                renderTontineDetail(tontine.id);
+              } catch (error) {
+                notify('Erreur', `Impossible de valider le tour: ${error.message}`);
                 validateBtn.disabled = false;
-                validateBtn.onclick = async () => {
-                    validateBtn.disabled = true;
-                    try {
-                        const result = await Api.validateRound(tontine.id);
-                        notify('Succès', result.message || 'Tour validé.');
-                        renderTontineDetail(tontine.id);
-                    } catch (error) {
-                        notify('Erreur', `Impossible de valider le tour: ${error.message}`);
-                        validateBtn.disabled = false;
-                    }
-                };
-            } else {
-                // STATE: TONTINE FINISHED
-                tonRoundBanner.textContent = 'Tontine terminée !';
-                tonRoundBanner.classList.remove('alert-info');
-                tonRoundBanner.classList.add('alert-success');
-            }
+              }
+            };
+          } else {
+            // STATE: TONTINE FINISHED
+            tonRoundBanner.textContent = 'Tontine terminée !';
+            tonRoundBanner.classList.remove('alert-info');
+            tonRoundBanner.classList.add('alert-success');
+          }
         } else {
-            // STATE: READY TO DESIGNATE
-            if (roundsLeft) {
-                designateSection.classList.remove('d-none');
-                const previousWinnerIds = new Set(tontine.withdrawals.map(w => w.beneficiary.id));
-                const eligibleMembers = members.filter(m => !previousWinnerIds.has(m.user));
+          // STATE: READY TO DESIGNATE
+          if (roundsLeft) {
+            designateSection.classList.remove('d-none');
+            const previousWinnerIds = new Set(tontine.withdrawals.map(w => w.beneficiary.id));
+            const eligibleMembers = members.filter(m => !previousWinnerIds.has(m.user));
 
-                if (eligibleMembers.length > 0) {
-                    $('#eligibleMembersSelect').innerHTML = '<option value="">-- Sélectionnez un bénéficiaire --</option>' +
-                        eligibleMembers.map(m => `<option value="${m.user}">${m.user_first_name || ''} ${m.user_last_name || ''} (${m.user_email})</option>`).join('');
-                    
-                    $('#designateWinnerBtn').disabled = false;
-                    $('#designateWinnerBtn').onclick = async () => {
-                        const selectedUserId = $('#eligibleMembersSelect').value;
-                        if (!selectedUserId) {
-                            notify('Erreur', 'Veuillez sélectionner un membre.');
-                            return;
-                        }
-                        try {
-                            const result = await Api.designateRecipient(tontine.id, selectedUserId);
-                            notify('Succès', result.message || 'Bénéficiaire désigné.');
-                            renderTontineDetail(tontine.id);
-                        } catch (error) {
-                            notify('Erreur', `Impossible de désigner le bénéficiaire: ${error.message}`);
-                        }
-                    };
-                } else {
-                    $('#eligibleMembersSelect').innerHTML = '<option value="">Aucun membre éligible</option>';
-                    $('#designateWinnerBtn').disabled = true;
+            if (eligibleMembers.length > 0) {
+              $('#eligibleMembersSelect').innerHTML = '<option value="">-- Sélectionnez un bénéficiaire --</option>' +
+                eligibleMembers.map(m => `<option value="${m.user}">${m.user_first_name || ''} ${m.user_last_name || ''} (${m.user_email})</option>`).join('');
+
+              $('#designateWinnerBtn').disabled = false;
+              $('#designateWinnerBtn').onclick = async () => {
+                const selectedUserId = $('#eligibleMembersSelect').value;
+                if (!selectedUserId) {
+                  notify('Erreur', 'Veuillez sélectionner un membre.');
+                  return;
                 }
+                try {
+                  const result = await Api.designateRecipient(tontine.id, selectedUserId);
+                  notify('Succès', result.message || 'Bénéficiaire désigné.');
+                  renderTontineDetail(tontine.id);
+                } catch (error) {
+                  notify('Erreur', `Impossible de désigner le bénéficiaire: ${error.message}`);
+                }
+              };
             } else {
-                // STATE: TONTINE FINISHED
-                tonRoundBanner.textContent = 'Tontine terminée !';
-                tonRoundBanner.classList.remove('alert-info');
-                tonRoundBanner.classList.add('alert-success');
+              $('#eligibleMembersSelect').innerHTML = '<option value="">Aucun membre éligible</option>';
+              $('#designateWinnerBtn').disabled = true;
             }
+          } else {
+            // STATE: TONTINE FINISHED
+            tonRoundBanner.textContent = 'Tontine terminée !';
+            tonRoundBanner.classList.remove('alert-info');
+            tonRoundBanner.classList.add('alert-success');
+          }
         }
       }
 
     } catch (error) {
-        notify('Erreur', `Impossible de charger les détails: ${error.message}`);
-        location.hash = '#/tontines';
+      notify('Erreur', `Impossible de charger les détails: ${error.message}`);
+      location.hash = '#/tontines';
     }
   }
 
@@ -1259,17 +1257,66 @@ const App = (() => {
         notify('Erreur de création', error.message);
       }
     });
-    
+
+    const confirmCodeBtnElement = $('#confirmCodeBtn');
+    if (confirmCodeBtnElement) {
+      confirmCodeBtnElement.addEventListener('click', async () => {
+        const codeInput = $('#invitationCode');
+        const code = codeInput.value.trim();
+        const modalEl = $('#enterCodeModal');
+
+        if (!code) {
+          notify('Erreur', 'Veuillez saisir un code.');
+          return;
+        }
+
+        const btn = $('#confirmCodeBtn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Validation...';
+
+        try {
+          const response = await Api.redeemCode(code);
+          notify('Succès', response.detail || 'Code validé avec succès !');
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          modal.hide();
+          codeInput.value = '';
+          // Reload user data to update permissions if needed
+          state.user = await Api.getMe();
+          updateAuthUI(); // Update UI to show/hide buttons based on new permissions
+        } catch (error) {
+          notify('Erreur', error.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      });
+    } else {
+      console.error('confirmCodeBtn not found in DOM');
+    }
+
     // The logout button is now inside a dynamically managed <li>, so we attach the event listener directly.
     // The <li>'s visibility is handled by updateAuthUI.
     const logoutBtnElement = $('#logoutBtn');
     if (logoutBtnElement) {
-        logoutBtnElement.addEventListener('click', () => {
-            // Perform logout action, e.g., clear token and redirect
-            localStorage.removeItem('moinama.auth.access');
-            localStorage.removeItem('moinama.auth.refresh');
-            location.href = '/'; // Redirect to home or login page
-        });
+      logoutBtnElement.addEventListener('click', () => {
+        // Perform logout action, e.g., clear token and redirect
+        localStorage.removeItem('moinama.auth.access');
+        localStorage.removeItem('moinama.auth.refresh');
+        location.href = '/'; // Redirect to home or login page
+      });
+    }
+
+    // Attach event to "Mettre un code" button to open modal
+    const enterCodeBtnElement = $('#enterCodeBtn');
+    if (enterCodeBtnElement) {
+      enterCodeBtnElement.addEventListener('click', () => {
+        const modalEl = document.getElementById('enterCodeModal');
+        if (modalEl) {
+          const modal = new bootstrap.Modal(modalEl);
+          modal.show();
+        }
+      });
     }
 
     window.addEventListener('hashchange', () => routeTo());
@@ -1281,18 +1328,50 @@ const App = (() => {
     const authDivider = $('#authDivider');
     const logoutItem = $('#logoutMenuItem');
     const currentUserNameSpan = $('#currentUserName');
+    const enterCodeItem = $('#enterCodeMenuItem');
+    const newTontineBtn = $('#newTontineBtn');
+    const createTontineBtn = $('#createTontineBtn');
 
     if (state.user) { // User is logged in
       if (loginItem) loginItem.classList.add('d-none');
       if (registerItem) registerItem.classList.add('d-none');
       if (authDivider) authDivider.classList.remove('d-none');
       if (logoutItem) logoutItem.classList.remove('d-none');
-      if (currentUserNameSpan) currentUserNameSpan.textContent = state.user.first_name || state.user.username;
+      if (currentUserNameSpan) currentUserNameSpan.textContent = state.user.first_name || state.user.email || 'Utilisateur';
+
+      // Show/hide "Nouvelle tontine" and "Créer" buttons based on permission
+      const canCreate = state.user.can_create_tontines;
+      if (newTontineBtn) {
+        if (canCreate) {
+          newTontineBtn.classList.remove('d-none');
+        } else {
+          newTontineBtn.classList.add('d-none');
+        }
+      }
+      if (createTontineBtn) {
+        if (canCreate) {
+          createTontineBtn.classList.remove('d-none');
+        } else {
+          createTontineBtn.classList.add('d-none');
+        }
+      }
+
+      // Show/hide "Mettre un code" button - only show if user doesn't have permission yet
+      if (enterCodeItem) {
+        if (canCreate) {
+          enterCodeItem.classList.add('d-none');
+        } else {
+          enterCodeItem.classList.remove('d-none');
+        }
+      }
     } else { // User is not logged in
       if (loginItem) loginItem.classList.remove('d-none');
       if (registerItem) registerItem.classList.remove('d-none');
       if (authDivider) authDivider.classList.add('d-none');
       if (logoutItem) logoutItem.classList.add('d-none');
+      if (enterCodeItem) enterCodeItem.classList.add('d-none');
+      if (newTontineBtn) newTontineBtn.classList.add('d-none');
+      if (createTontineBtn) createTontineBtn.classList.add('d-none');
       if (currentUserNameSpan) currentUserNameSpan.textContent = 'Invité';
     }
   }
@@ -1300,7 +1379,7 @@ const App = (() => {
   async function init() {
     initTheme();
     bind();
-    
+
     try {
       state.user = await Api.getMe();
       // $('#currentUserName').textContent = state.user.first_name || state.user.username; // Handled by updateAuthUI
@@ -1308,7 +1387,7 @@ const App = (() => {
       state.user = null; // Ensure state.user is null if API call fails
       // $('#currentUserName').textContent = 'Invité'; // Handled by updateAuthUI
     }
-    
+
     updateAuthUI(); // Call after state.user is determined
     routeTo();
   }
@@ -1316,7 +1395,7 @@ const App = (() => {
   async function showReciprocityDetails(withdrawalId) {
     const modal = new bootstrap.Modal($('#reciprocityModal'));
     const modalBody = $('#reciprocityModalBody');
-    
+
     // Show loading state
     modalBody.innerHTML = `
       <div class="text-center py-3">
@@ -1324,12 +1403,12 @@ const App = (() => {
         <p class="mt-2">Chargement des détails...</p>
       </div>
     `;
-    
+
     modal.show();
-    
+
     try {
       const data = await Api.getWithdrawalReciprocity(withdrawalId);
-      
+
       let html = `
         <div class="mb-3">
           <h6>Bénéficiaire : ${data.beneficiary.name}</h6>
@@ -1355,17 +1434,17 @@ const App = (() => {
           </div>
         </div>
       `;
-      
+
       if (data.eligible_contributions && data.eligible_contributions.length > 0) {
         html += `
           <div class="mb-3">
             <h6 class="text-success"><i class="bi bi-check-circle"></i> Contributions acceptées (${data.eligible_contributions.length})</h6>
             <div class="list-group">
         `;
-        
+
         data.eligible_contributions.forEach(contrib => {
-          const reasonText = contrib.reason === 'reciprocal' 
-            ? 'Réciprocité respectée' 
+          const reasonText = contrib.reason === 'reciprocal'
+            ? 'Réciprocité respectée'
             : 'Pas encore eu son tour';
           html += `
             <div class="list-group-item d-flex justify-content-between align-items-center">
@@ -1377,10 +1456,10 @@ const App = (() => {
             </div>
           `;
         });
-        
+
         html += `</div></div>`;
       }
-      
+
       if (data.excluded_contributions && data.excluded_contributions.length > 0) {
         html += `
           <div class="mb-3">
@@ -1390,7 +1469,7 @@ const App = (() => {
             </div>
             <div class="list-group">
         `;
-        
+
         data.excluded_contributions.forEach(contrib => {
           html += `
             <div class="list-group-item d-flex justify-content-between align-items-center">
@@ -1402,12 +1481,12 @@ const App = (() => {
             </div>
           `;
         });
-        
+
         html += `</div></div>`;
       }
-      
+
       modalBody.innerHTML = html;
-      
+
     } catch (error) {
       console.error('Erreur lors du chargement des détails de réciprocité:', error);
       modalBody.innerHTML = `

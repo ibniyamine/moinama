@@ -40,6 +40,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    can_create_tontines = models.BooleanField(default=False, verbose_name='Peut créer des tontines')
     date_joined = models.DateTimeField(default=timezone.now)
 
     objects = UserManager()

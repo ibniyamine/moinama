@@ -50,7 +50,7 @@
             <h1 class="h5 m-0 page-title">Dashboard global</h1>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newTontineModal">
+            <button id="newTontineBtn" class="btn btn-sm btn-outline-primary d-none" data-bs-toggle="modal" data-bs-target="#newTontineModal">
               <i class="bi bi-plus-circle"></i> Nouvelle tontine
             </button>
             <div class="dropdown">
@@ -61,6 +61,7 @@
                 <li id="loginMenuItem"><a class="dropdown-item" href="{% url 'login_page' %}"><i class="bi bi-box-arrow-in-right me-2"></i>Se connecter</a></li>
                 <li id="registerMenuItem"><a class="dropdown-item" href="{% url 'register_page' %}"><i class="bi bi-person-plus me-2"></i>S'inscrire</a></li>
                 <li id="authDivider" class="d-none"><hr class="dropdown-divider"></li>
+                <li id="enterCodeMenuItem" class="d-none"><button id="enterCodeBtn" class="dropdown-item"><i class="bi bi-ticket-perforated me-2"></i>Mettre un code</button></li>
                 <li id="logoutMenuItem" class="d-none"><button class="dropdown-item" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Se déconnecter</button></li>
               </ul>
             </div>
@@ -247,7 +248,7 @@
           <section data-route="tontines" class="route">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h2 class="h5 m-0">Tontines</h2>
-              <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTontineModal"><i class="bi bi-plus-circle me-1"></i>Créer</button>
+              <button id="createTontineBtn" class="btn btn-primary btn-sm d-none" data-bs-toggle="modal" data-bs-target="#newTontineModal"><i class="bi bi-plus-circle me-1"></i>Créer</button>
             </div>
             <div class="row g-3" id="tontineCards"></div>
           </section>
@@ -604,6 +605,31 @@
           </div>
         </div>
       </div>
+    
+    </div>
+    
+    <!-- Enter Code Modal -->
+    <div class="modal fade" id="enterCodeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Saisir un code d'invitation</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="enterCodeForm">
+              <div class="mb-3">
+                <label for="invitationCode" class="form-label">Code</label>
+                <input type="text" class="form-control" id="invitationCode" placeholder="Entrez votre code ici" required>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-primary" id="confirmCodeBtn">Valider</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Contribute Modal -->
@@ -665,6 +691,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="{% static 'frontend/app.js' %}?v=1.20"></script>
+    <script src="{% static 'frontend/app.js' %}?v=2.1"></script>
   </body>
 </html>

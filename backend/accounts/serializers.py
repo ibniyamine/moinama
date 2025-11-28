@@ -6,7 +6,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'phone', 'first_name', 'last_name', 'date_joined'
+            'id', 'email', 'phone', 'first_name', 'last_name', 'date_joined', 'can_create_tontines'
         ]
         read_only_fields = ['id', 'date_joined']
 
