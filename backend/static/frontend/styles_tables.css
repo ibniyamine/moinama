@@ -1,0 +1,75 @@
+
+/* ===== TABLEAUX ÉLÉGANTS ET SOBRES ===== */
+
+.table-elegant {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.table-elegant thead th {
+  background-color: transparent;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1rem 1.5rem;
+  vertical-align: middle;
+}
+
+.table-elegant tbody td {
+  padding: 1rem 1.5rem;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(0,0,0,0.02);
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.table-elegant tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-elegant tbody tr:hover td {
+  background-color: rgba(0,0,0,0.01);
+}
+
+/* Suppression des bordures par défaut de Bootstrap */
+.card .table-responsive {
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.card-header {
+  background-color: transparent;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  padding: 1.25rem 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Badge plus subtil */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  border-radius: 6px;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .table-elegant thead th {
+  border-bottom-color: rgba(255,255,255,0.05);
+}
+
+[data-theme="dark"] .table-elegant tbody td {
+  border-bottom-color: rgba(255,255,255,0.02);
+}
+
+[data-theme="dark"] .table-elegant tbody tr:hover td {
+  background-color: rgba(255,255,255,0.02);
+}
+
+[data-theme="dark"] .card-header {
+  border-bottom-color: rgba(255,255,255,0.05);
+}
