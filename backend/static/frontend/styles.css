@@ -434,3 +434,23 @@ html, body {
     font-size: 16px; /* Évite le zoom automatique sur iOS */
   }
 }
+
+/* Modern KPI Cards */
+.kpi-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--bs-box-shadow-lg);
+}
+
+.kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 24px;
+}

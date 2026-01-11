@@ -1,4 +1,3 @@
-
 const Api = (() => {
   async function request(url, method = 'GET', data = null) {
     const token = localStorage.getItem('moinama.auth.access'); // Get token from localStorage (optional for JWT)
@@ -89,6 +88,7 @@ const Api = (() => {
 
 const App = (() => {
   let state = { user: null, tontines: [] };
+  let activityChartInstance = null;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -96,6 +96,10 @@ const App = (() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('moinama.theme', theme);
     $('#darkModeSwitch').checked = theme === 'dark';
+    // Re-render chart if it exists and is on the current page
+    if (activityChartInstance && $('[data-route="dashboard"].active')) {
+      renderActivityChart();
+    }
   }
 
   function initTheme() {
@@ -145,7 +149,136 @@ const App = (() => {
     if (target === 'dashboard') renderDashboardGlobal();
   }
 
-  let contribChartInstance = null;
+  async function renderActivityChart() {
+    const ctx = $('#activityChart')?.getContext('2d');
+    if (!ctx) return;
+
+    if (activityChartInstance) {
+      activityChartInstance.destroy();
+    }
+
+    // 1. Prepare dates and labels
+    const labels = [];
+    const dateKeys = []; // For mapping API data
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      labels.push(d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }));
+      dateKeys.push(d.toISOString().split('T')[0]);
+    }
+    const startDate = dateKeys[0];
+    const endDate = dateKeys[6];
+
+    // 2. Initialize data maps
+    const dailyContributions = new Map(dateKeys.map(d => [d, 0]));
+    const dailyWithdrawals = new Map(dateKeys.map(d => [d, 0]));
+
+    try {
+      // 3. Fetch data in parallel
+      const [contributions, withdrawals] = await Promise.all([
+        Api.getContributions({ start_date: startDate, end_date: endDate, status: 'paid' }),
+        Api.getWithdrawals({ start_date: startDate, end_date: endDate })
+      ]);
+
+      // 4. Process data
+      contributions.forEach(tx => {
+        const day = tx.date.split('T')[0];
+        if (dailyContributions.has(day)) {
+          dailyContributions.set(day, dailyContributions.get(day) + parseFloat(tx.amount));
+        }
+      });
+
+      withdrawals.forEach(tx => {
+        const day = tx.date.split('T')[0];
+        if (dailyWithdrawals.has(day)) {
+          dailyWithdrawals.set(day, dailyWithdrawals.get(day) + parseFloat(tx.amount));
+        }
+      });
+
+    } catch (error) {
+      console.error("Failed to load chart data:", error);
+      // Optionally show an error on the chart
+    }
+    
+    const contributionData = Array.from(dailyContributions.values());
+    const withdrawalData = Array.from(dailyWithdrawals.values());
+
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDarkMode ? '#e5e7eb' : '#1f2937';
+
+    activityChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Cotisations',
+            data: contributionData,
+            borderColor: 'rgba(13, 110, 253, 0.8)',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            fill: true,
+            tension: 0.4,
+          },
+          {
+            label: 'Retraits',
+            data: withdrawalData,
+            borderColor: 'rgba(25, 135, 84, 0.8)',
+            backgroundColor: 'rgba(25, 135, 84, 0.1)',
+            fill: true,
+            tension: 0.4,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: textColor,
+              callback: function(value) {
+                return formatCurrency(value);
+              }
+            },
+            grid: {
+              color: gridColor,
+            }
+          },
+          x: {
+            ticks: {
+              color: textColor,
+            },
+            grid: {
+              color: gridColor,
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: textColor,
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (context.parsed.y !== null) {
+                  label += formatCurrency(context.parsed.y);
+                }
+                return label;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
 
   async function renderDashboardGlobal() {
     const globalContribList = $('#globalContribList');
@@ -169,6 +302,9 @@ const App = (() => {
       $('#kpiMembers').textContent = stats.total_members;
       $('#kpiActiveGroups').textContent = stats.total_active_tontines;
 
+      // Render the activity chart
+      await renderActivityChart();
+
       // Ensure state.tontines is populated for displaying tontine names
       if (!state.tontines || state.tontines.length === 0) {
         state.tontines = await Api.getTontines();
@@ -187,7 +323,7 @@ const App = (() => {
               <tr>
                 <td>${memberName}</td>
                 <td>${tontineName}</td>
-                <td class="text-end">${formatCurrency(tx.amount)}</td>
+                <td class="text-end"><span class="amount-positive">+ ${formatCurrency(tx.amount)}</span></td>
                 <td class="text-end"><small class="text-muted">${date}</small></td>
               </tr>
             `;
@@ -208,7 +344,7 @@ const App = (() => {
               <tr>
                 <td>${memberName}</td>
                 <td>${tontineName}</td>
-                <td class="text-end">${formatCurrency(tx.amount)}</td>
+                <td class="text-end"><span class="amount-negative">- ${formatCurrency(tx.amount)}</span></td>
                 <td class="text-end"><small class="text-muted">${date}</small></td>
               </tr>
             `;
@@ -270,7 +406,7 @@ const App = (() => {
           return `
             <tr>
               <td>${tontineName}</td>
-              <td class="text-end">${formatCurrency(tx.amount)}</td>
+              <td class="text-end"><span class="amount-positive">+ ${formatCurrency(tx.amount)}</span></td>
               <td class="text-end"><small class="text-muted">${date}</small></td>
             </tr>
           `;
@@ -287,7 +423,7 @@ const App = (() => {
           return `
             <tr>
               <td>${tontineName}</td>
-              <td class="text-end">${formatCurrency(tx.amount)}</td>
+              <td class="text-end"><span class="amount-negative">- ${formatCurrency(tx.amount)}</span></td>
               <td class="text-end"><small class="text-muted">${date}</small></td>
             </tr>
           `;
@@ -539,7 +675,7 @@ const App = (() => {
           renderTontineDetail(tontine.id);
         } catch (error) {
           console.error('Erreur lors de l\'ajout des membres:', error);
-          notify('Erreur', `Impossible d'ajouter les membres: ${error.message}`);
+          notify('Erreur', `Impossible d\'ajouter les membres: ${error.message}`);
         } finally {
           newConfirmBtn.disabled = false;
           newConfirmBtn.innerHTML = '<i class="bi bi-person-plus"></i> Ajouter <span id="selectedCount"></span>';
@@ -948,7 +1084,7 @@ const App = (() => {
               notify('Succès', result.message || 'Paiement effectué avec succès.');
               renderTontineDetail(tontine.id);
             } catch (error) {
-              notify('Erreur', `Impossible d'effectuer le paiement: ${error.message}`);
+              notify('Erreur', `Impossible d\'effectuer le paiement: ${error.message}`);
               payoutBtn.disabled = false;
             }
           };
@@ -1120,7 +1256,7 @@ const App = (() => {
         }
       } catch (error) {
         console.error('Erreur lors de la contribution:', error);
-        notify('Erreur', `Impossible d'enregistrer la contribution: ${error.message}`);
+        notify('Erreur', `Impossible d\'enregistrer la contribution: ${error.message}`);
       }
     };
     contributeModal.show();
@@ -1187,7 +1323,7 @@ const App = (() => {
 
       tbody.innerHTML = allTransactions.map(tx => {
         const date = new Date(tx.date).toLocaleDateString('fr-FR');
-        const amountClass = tx.type === 'Contribution' ? 'text-success' : 'text-danger';
+        const amountClass = tx.type === 'Contribution' ? 'amount-positive' : 'amount-negative';
         const sign = tx.type === 'Contribution' ? '+' : '-';
 
         return `
@@ -1196,7 +1332,7 @@ const App = (() => {
             <td>${tx.type}</td>
             <td>${tx.member_name} <small class="text-muted">(${tx.member_contact})</small></td>
             <td>${tx.tontine_name}</td>
-            <td class="text-end ${amountClass}">${sign} ${formatCurrency(tx.amount)}</td>
+            <td class="text-end"><span class="amount-positive">${sign} ${formatCurrency(tx.amount)}</span></td>
           </tr>
         `;
       }).join('');
@@ -1500,4 +1636,4 @@ const App = (() => {
   return { init, showReciprocityDetails };
 })();
 
-window.addEventListener('DOMContentLoaded', App.init);
+window.addEventListener('load', App.init);

@@ -1,75 +1,208 @@
+/* ===== TABLEAUX STYLE TAILWIND ===== */
 
-/* ===== TABLEAUX ÉLÉGANTS ET SOBRES ===== */
+/* Card container style Tailwind */
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  /* gray-200 */
+  border-radius: 0.5rem;
+  /* rounded-lg */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  /* shadow */
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
 
+.card-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  /* gray-200 */
+  padding: 1.25rem 1.5rem;
+  /* px-6 py-5 */
+  font-size: 1.125rem;
+  /* text-lg */
+  font-weight: 500;
+  /* font-medium */
+  color: #111827;
+  /* gray-900 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Table style Tailwind */
 .table-elegant {
-  border-collapse: separate;
-  border-spacing: 0;
   width: 100%;
-  margin-bottom: 0;
+  border-collapse: collapse;
+}
+
+.table-elegant thead {
+  background-color: #f9fafb;
+  /* gray-50 */
 }
 
 .table-elegant thead th {
-  background-color: transparent;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-  color: var(--muted);
-  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  /* px-6 py-3 */
+  text-align: left;
   font-size: 0.75rem;
+  /* text-xs */
+  font-weight: 500;
+  /* font-medium */
+  color: #6b7280;
+  /* gray-500 */
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 1rem 1.5rem;
-  vertical-align: middle;
+  letter-spacing: 0.05em;
+  /* tracking-wider */
+  border-bottom: 1px solid #e5e7eb;
+  /* gray-200 */
+}
+
+.table-elegant thead th.text-end {
+  text-align: right;
+}
+
+.table-elegant tbody {
+  background-color: #ffffff;
+}
+
+.table-elegant tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  /* gray-200 */
+  transition: background-color 0.15s ease-in-out;
+}
+
+.table-elegant tbody tr:last-child {
+  border-bottom: none;
+}
+
+.table-elegant tbody tr:hover {
+  background-color: #f9fafb;
+  /* gray-50 */
 }
 
 .table-elegant tbody td {
   padding: 1rem 1.5rem;
-  vertical-align: middle;
-  border-bottom: 1px solid rgba(0,0,0,0.02);
-  color: var(--text);
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease;
+  /* px-6 py-4 */
+  white-space: nowrap;
+  font-size: 0.875rem;
+  /* text-sm */
+  color: #374151;
+  /* gray-700 */
 }
 
-.table-elegant tbody tr:last-child td {
-  border-bottom: none;
+.table-elegant tbody td.text-end {
+  text-align: right;
 }
 
-.table-elegant tbody tr:hover td {
-  background-color: rgba(0,0,0,0.01);
-}
-
-/* Suppression des bordures par défaut de Bootstrap */
-.card .table-responsive {
-  border-radius: 0 0 0.5rem 0.5rem;
-}
-
-.card-header {
-  background-color: transparent;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-  padding: 1.25rem 1.5rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-/* Badge plus subtil */
-.badge {
+/* Badges style Tailwind */
+.amount-positive {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  /* px-2.5 py-0.5 */
+  border-radius: 9999px;
+  /* rounded-full */
+  font-size: 0.75rem;
+  /* text-xs */
   font-weight: 500;
-  padding: 0.35em 0.65em;
-  border-radius: 6px;
+  /* font-medium */
+  background-color: #d1fae5;
+  /* green-100 */
+  color: #065f46;
+  /* green-800 */
+}
+
+.amount-negative {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #fee2e2;
+  /* red-100 */
+  color: #991b1b;
+  /* red-800 */
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
 }
 
 /* Dark mode adjustments */
-[data-theme="dark"] .table-elegant thead th {
-  border-bottom-color: rgba(255,255,255,0.05);
-}
-
-[data-theme="dark"] .table-elegant tbody td {
-  border-bottom-color: rgba(255,255,255,0.02);
-}
-
-[data-theme="dark"] .table-elegant tbody tr:hover td {
-  background-color: rgba(255,255,255,0.02);
+[data-theme="dark"] .card {
+  background-color: #1f2937;
+  /* gray-800 */
+  border-color: #374151;
+  /* gray-700 */
 }
 
 [data-theme="dark"] .card-header {
-  border-bottom-color: rgba(255,255,255,0.05);
+  background-color: #1f2937;
+  border-bottom-color: #374151;
+  color: #f9fafb;
+  /* gray-50 */
+}
+
+[data-theme="dark"] .table-elegant thead {
+  background-color: #374151;
+  /* gray-700 */
+}
+
+[data-theme="dark"] .table-elegant thead th {
+  color: #d1d5db;
+  /* gray-300 */
+  border-bottom-color: #4b5563;
+  /* gray-600 */
+}
+
+[data-theme="dark"] .table-elegant tbody {
+  background-color: #1f2937;
+}
+
+[data-theme="dark"] .table-elegant tbody tr {
+  border-bottom-color: #374151;
+}
+
+[data-theme="dark"] .table-elegant tbody tr:hover {
+  background-color: #374151;
+}
+
+[data-theme="dark"] .table-elegant tbody td {
+  color: #d1d5db;
+  /* gray-300 */
+}
+
+[data-theme="dark"] .amount-positive {
+  background-color: rgba(6, 95, 70, 0.4);
+  color: #6ee7b7;
+  /* green-300 */
+}
+
+[data-theme="dark"] .amount-negative {
+  background-color: rgba(153, 27, 27, 0.4);
+  color: #fca5a5;
+  /* red-300 */
 }
