@@ -698,24 +698,20 @@ const App = (() => {
         Api.getWithdrawals({ tontine_id: id })
       ]);
 
+      const canModify = state.user && state.user.can_create_tontines;
+
       $('#tonDetailTitle').textContent = tontine.name;
       $('#backToTontines').onclick = () => { location.hash = '#/tontines'; };
-      $('#addMemberBtn').onclick = () => handleAddMember(tontine);
-      $('#editTontineBtn').onclick = () => handleEditTontine(tontine); // Bind edit button
-      $('#deleteTontineBtn').onclick = () => handleDeleteTontine(tontine); // Bind delete button
 
       // Handle Contribute button state
-      const contributeButton = $('button[data-action="contribute"]'); // This button is in the tontine list, not detail
-      const contributeModalButton = $('#confirmContributeBtn'); // This is the button inside the modal
+      const contributeButton = $('button[data-action="contribute"]');
+      const contributeModalButton = $('#confirmContributeBtn');
 
       if (contributionStatus.current_user_has_contributed_this_round) {
-        // If the current user has contributed, disable the button in the modal
         if (contributeModalButton) {
           contributeModalButton.disabled = true;
           contributeModalButton.textContent = 'Déjà cotisé pour ce tour';
         }
-        // Also disable the contribute button in the tontine list if it's visible
-        // (though this function is for detail view, good to be safe)
         if (contributeButton) {
           contributeButton.disabled = true;
           contributeButton.textContent = 'Déjà cotisé';
@@ -734,13 +730,11 @@ const App = (() => {
       // KPIs
       const totalContributed = contributionStatus.members_status.reduce((sum, m) => m.status === 'paid' ? sum + (m.last_contribution_amount || 0) : sum, 0);
       const lateMembersCount = contributionStatus.members_status.filter(m => m.status === 'pending' || m.status === 'unpaid').length;
-      const participatingMembersCount = contributionStatus.members_status.filter(m => m.status === 'paid').length;
-
       $('#kpiTonMembers').textContent = members.length;
       $('#kpiTonTotal').textContent = formatCurrency(totalContributed);
       $('#kpiTonLate').textContent = lateMembersCount;
 
-      // Build withdrawals map (prefer detail payload, fall back to list endpoint)
+      // Build withdrawals map
       const withdrawalsMap = new Map();
       const mergedWithdrawals = [
         ...(Array.isArray(tontine.withdrawals) ? tontine.withdrawals : []),
@@ -749,23 +743,14 @@ const App = (() => {
       mergedWithdrawals.forEach(withdrawal => {
         if (!withdrawal) return;
         const roundKey = String(withdrawal.round ?? withdrawal.round_number ?? '');
-        if (!roundKey) return;
-        if (!withdrawalsMap.has(roundKey)) {
-          withdrawalsMap.set(roundKey, withdrawal);
-        }
+        if (roundKey) withdrawalsMap.set(roundKey, withdrawal);
       });
 
       // Populate Rounds History
       const tonRoundsHistory = $('#tonRoundsHistory');
-      tonRoundsHistory.innerHTML = ''; // Clear previous content
-
-      // Récupérer les données des contributions par tour
+      tonRoundsHistory.innerHTML = '';
       const contributionsByRound = await Api.getContributions({ tontine_id: id });
-
-      // Récupérer les membres pour afficher les non-contributeurs
       const allMembers = await Api.getTontineMembers(id);
-
-      // Trier les tours par ordre décroissant
       const rounds = Object.keys(contributionsByRound).sort((a, b) => b - a);
 
       if (rounds.length > 0) {
@@ -781,177 +766,59 @@ const App = (() => {
           const accordionItem = document.createElement('div');
           accordionItem.className = 'accordion-item';
 
-          // Retrieve withdrawal information for the round if available
           const withdrawal = withdrawalsMap.get(String(roundNumber)) || null;
           let withdrawalHtml = '';
           let withdrawalSummary = '';
           if (withdrawal && withdrawal.beneficiary) {
-            const withdrawalDate = withdrawal.date
-              ? new Date(withdrawal.date).toLocaleDateString('fr-FR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-              })
-              : '-';
-            const beneficiaryName = `${withdrawal.beneficiary.first_name || ''} ${withdrawal.beneficiary.last_name || ''}`.trim() ||
-              withdrawal.beneficiary.email ||
-              `Membre #${withdrawal.beneficiary.id}`;
-
+            const withdrawalDate = withdrawal.date ? new Date(withdrawal.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+            const beneficiaryName = `${withdrawal.beneficiary.first_name || ''} ${withdrawal.beneficiary.last_name || ''}`.trim() || withdrawal.beneficiary.email || `Membre #${withdrawal.beneficiary.id}`;
             withdrawalSummary = `- ${beneficiaryName}`;
-
-            // Fetch reciprocity data if withdrawal has an ID
+            
             let reciprocityHtml = '';
             if (withdrawal.id) {
               try {
                 const reciprocity = await Api.getWithdrawalReciprocity(withdrawal.id);
-                const excludedAmount = reciprocity.excluded_amount || 0;
-                const excludedCount = reciprocity.excluded_contributions?.length || 0;
-
-                if (excludedCount > 0) {
-                  reciprocityHtml = `
-                    <div class="alert alert-warning small mb-2">
-                      <i class="bi bi-exclamation-triangle"></i> <strong>Réciprocité appliquée :</strong>
-                      ${excludedCount} contribution(s) exclue(s) (${formatCurrency(excludedAmount)}) car le bénéficiaire n'avait pas cotisé pour ces membres.
-                      <button class="btn btn-sm btn-outline-warning ms-2" onclick="App.showReciprocityDetails(${withdrawal.id})">
-                        <i class="bi bi-info-circle"></i> Détails
-                      </button>
-                    </div>
-                  `;
+                if (reciprocity.excluded_contributions?.length > 0) {
+                  reciprocityHtml = `<div class="alert alert-warning small mb-2"><i class="bi bi-exclamation-triangle"></i> <strong>Réciprocité appliquée :</strong> ${reciprocity.excluded_contributions.length} contribution(s) exclue(s) (${formatCurrency(reciprocity.excluded_amount)}) <button class="btn btn-sm btn-outline-warning ms-2" onclick="App.showReciprocityDetails(${withdrawal.id})"><i class="bi bi-info-circle"></i> Détails</button></div>`;
                 }
-              } catch (error) {
-                console.error('Erreur lors de la récupération des données de réciprocité:', error);
-              }
+              } catch (error) { console.error('Erreur réciprocité:', error); }
             }
 
-            withdrawalHtml = `
-              <div class="p-3 border-bottom bg-light">
-                <h6 class="text-muted mb-2">Bénéficiaire du tour ${roundNumber}</h6>
-                ${reciprocityHtml}
-                <ul class="list-unstyled mb-0 small">
-                  <li><strong>Bénéficiaire :</strong> ${beneficiaryName}</li>
-                  <li><strong>Montant :</strong> ${formatCurrency(withdrawal.amount || 0)}</li>
-                  <li><strong>Date :</strong> ${withdrawalDate}</li>
-                  ${withdrawal.note ? `<li><strong>Note :</strong> ${withdrawal.note}</li>` : ''}
-                </ul>
-              </div>
-            `;
+            withdrawalHtml = `<div class="p-3 border-bottom bg-light"><h6 class="text-muted mb-2">Bénéficiaire du tour ${roundNumber}</h6>${reciprocityHtml}<ul class="list-unstyled mb-0 small"><li><strong>Bénéficiaire :</strong> ${beneficiaryName}</li><li><strong>Montant :</strong> ${formatCurrency(withdrawal.amount || 0)}</li><li><strong>Date :</strong> ${withdrawalDate}</li>${withdrawal.note ? `<li><strong>Note :</strong> ${withdrawal.note}</li>` : ''}</ul></div>`;
           }
 
-          // Build contributions table (Refactored to prevent duplicates)
           const contributionsMap = new Map();
           contributions.forEach(c => {
             const memberId = c?.member?.id ?? c?.member_id;
-            if (memberId !== undefined && memberId !== null) {
-              contributionsMap.set(String(memberId), c);
-            }
+            if (memberId != null) contributionsMap.set(String(memberId), c);
           });
 
-          let contributionsHtml = `
-            <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
-              <span class="badge rounded-pill border border-success text-success bg-transparent">Payés: ${paidCount}</span>
-              <span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente: ${pendingCount}</span>
-              <span class="badge rounded-pill border border-danger text-danger bg-transparent">Non payés: ${unpaidCount}</span>
-              <span class="badge rounded-pill border border-primary text-primary bg-transparent">Total cotisé: ${formatCurrency(totalCollected)}</span>
-            </div>
-            <table class="table table-sm table-hover">
-              <thead class="table-light">
-                <tr>
-                  <th>Membre</th>
-                  <th class="text-end">Montant</th>
-                  <th class="text-end">Statut</th>
-                  <th class="text-end">Date</th>
-                </tr>
-              </thead>
-              <tbody>`;
-
+          let contributionsHtml = `<div class="d-flex justify-content-between flex-wrap gap-2 mb-3"><span class="badge rounded-pill border border-success text-success bg-transparent">Payés: ${paidCount}</span><span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente: ${pendingCount}</span><span class="badge rounded-pill border border-danger text-danger bg-transparent">Non payés: ${unpaidCount}</span><span class="badge rounded-pill border border-primary text-primary bg-transparent">Total cotisé: ${formatCurrency(totalCollected)}</span></div><table class="table table-sm table-hover"><thead class="table-light"><tr><th>Membre</th><th class="text-end">Montant</th><th class="text-end">Statut</th><th class="text-end">Date</th></tr></thead><tbody>`;
           allMembers.forEach(member => {
             const contribution = contributionsMap.get(String(member.user));
-
-            let displayName;
-            // Prioritize name from contribution record if it exists
-            if (contribution && contribution.member_name) {
-              displayName = contribution.member_name;
-            } else {
-              // Otherwise, try to build from the member record
-              displayName = (member.user_first_name && member.user_last_name)
-                ? `${member.user_first_name} ${member.user_last_name}`.trim()
-                : null; // Set to null if no name
-            }
-
-            // If no name could be found, use a generic placeholder. Never show the email.
-            if (!displayName) {
-              displayName = `Membre #${member.user}`;
-            }
-
+            const displayName = (member.user_first_name && member.user_last_name) ? `${member.user_first_name} ${member.user_last_name}`.trim() : (contribution?.member_name || `Membre #${member.user}`);
             let statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Non payé</span>';
             let paymentDate = '-';
             let amount = '-';
             let rowClass = 'table-light';
-
             if (contribution) {
               amount = contribution.amount ? formatCurrency(parseFloat(contribution.amount)) : '-';
-              const contributionDate = contribution.date || contribution.payment_date;
-              if (contributionDate) {
-                paymentDate = new Date(contributionDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-              }
+              if (contribution.date || contribution.payment_date) paymentDate = new Date(contribution.date || contribution.payment_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
               switch (contribution.status) {
-                case 'paid':
-                  statusBadge = '<span class="badge rounded-pill border border-success text-success bg-transparent">Payé</span>';
-                  rowClass = '';
-                  break;
-                case 'pending':
-                  statusBadge = '<span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente</span>';
-                  rowClass = 'table-warning';
-                  break;
-                case 'unpaid':
-                  statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Impayé</span>';
-                  rowClass = 'table-danger';
-                  break;
-                default:
-                  statusBadge = '<span class="badge rounded-pill border border-secondary text-secondary bg-transparent">Inconnu</span>';
+                case 'paid': statusBadge = '<span class="badge rounded-pill border border-success text-success bg-transparent">Payé</span>'; rowClass = ''; break;
+                case 'pending': statusBadge = '<span class="badge rounded-pill border border-warning text-warning bg-transparent">En attente</span>'; rowClass = 'table-warning'; break;
+                case 'unpaid': statusBadge = '<span class="badge rounded-pill border border-danger text-danger bg-transparent">Impayé</span>'; rowClass = 'table-danger'; break;
+                default: statusBadge = '<span class="badge rounded-pill border border-secondary text-secondary bg-transparent">Inconnu</span>';
               }
             }
-
-            contributionsHtml += `
-              <tr class="${rowClass}">
-                <td>${displayName}</td>
-                <td class="text-end">${amount}</td>
-                <td class="text-end">${statusBadge}</td>
-                <td class="text-end"><small class="text-muted">${paymentDate}</small></td>
-              </tr>`;
+            contributionsHtml += `<tr class="${rowClass}"><td>${displayName}</td><td class="text-end">${amount}</td><td class="text-end">${statusBadge}</td><td class="text-end"><small class="text-muted">${paymentDate}</small></td></tr>`;
           });
-
           contributionsHtml += '</tbody></table>';
 
-          // 3. Assemble the accordion item
-          accordionItem.innerHTML = `
-            <h2 class="accordion-header" id="headingRound${roundNumber}">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRound${roundNumber}" aria-expanded="false" aria-controls="collapseRound${roundNumber}">
-                <div class="d-flex flex-column w-100">
-                  <div class="d-flex justify-content-between w-100">
-                    <span>Tour ${roundNumber} ${withdrawalSummary}</span>
-                    <span class="badge bg-primary">${paidCount}/${totalMembers} membres</span>
-                  </div>
-                  <div class="progress mt-1" style="height: 5px;">
-                    <div class="progress-bar bg-success" role="progressbar" style="width: ${(paidCount / totalMembers) * 100}%" aria-valuenow="${paidCount}" aria-valuemin="0" aria-valuemax="${totalMembers}"></div>
-                  </div>
-                </div>
-              </button>
-            </h2>
-            <div id="collapseRound${roundNumber}" class="accordion-collapse collapse" aria-labelledby="headingRound${roundNumber}" data-bs-parent="#tonRoundsHistory">
-              <div class="accordion-body p-0">
-                ${withdrawalHtml}
-                <div class="p-3">
-                  <h6 class="text-muted mb-2">Détail des cotisations</h6>
-                  ${contributionsHtml}
-                </div>
-              </div>
-            </div>
-          `;
+          accordionItem.innerHTML = `<h2 class="accordion-header" id="headingRound${roundNumber}"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRound${roundNumber}" aria-expanded="false" aria-controls="collapseRound${roundNumber}"><div class="d-flex flex-column w-100"><div class="d-flex justify-content-between w-100"><span>Tour ${roundNumber} ${withdrawalSummary}</span><span class="badge bg-primary">${paidCount}/${totalMembers} membres</span></div><div class="progress mt-1" style="height: 5px;"><div class="progress-bar bg-success" role="progressbar" style="width: ${(paidCount / totalMembers) * 100}%" aria-valuenow="${paidCount}" aria-valuemin="0" aria-valuemax="${totalMembers}"></div></div></div></button></h2><div id="collapseRound${roundNumber}" class="accordion-collapse collapse" aria-labelledby="headingRound${roundNumber}" data-bs-parent="#tonRoundsHistory"><div class="accordion-body p-0">${withdrawalHtml}<div class="p-3"><h6 class="text-muted mb-2">Détail des cotisations</h6>${contributionsHtml}</div></div></div>`;
           tonRoundsHistory.appendChild(accordionItem);
         }
       } else {
-        console.log('--- DEBUG: Aucune donnée de tour à afficher. ---');
         tonRoundsHistory.innerHTML = '<div class="text-muted text-center p-3">Aucun historique de contributions disponible.</div>';
       }
 
@@ -959,196 +826,116 @@ const App = (() => {
       const tbody = $('#tonMembersTable tbody');
       tbody.innerHTML = contributionStatus.members_status.map(mStatus => {
         const member = members.find(mem => mem.user === mStatus.member_id);
-        if (!member) return ''; // Should not happen if data is consistent
-
-        const fullName = `${member.user_first_name || ''} ${member.user_last_name || ''}`.trim();
-        const displayName = fullName || member.user_email;
+        if (!member) return '';
+        const displayName = `${member.user_first_name || ''} ${member.user_last_name || ''}`.trim() || member.user_email;
         const contactInfo = member.user_phone || member.user_email;
-
-        let statusHtml = '';
-        // The backend now sends status: 'pending', 'paid', or 'unpaid'.
-        // 'unpaid' is also used when no contribution has been made for the period.
+        let statusHtml;
         switch (mStatus.status) {
-          case 'paid':
-            statusHtml = '<span class="badge bg-success">Payé</span>';
-            break;
-          case 'pending':
-            statusHtml = '<span class="badge bg-warning">En attente</span>';
-            break;
-          case 'unpaid':
-            statusHtml = '<span class="badge bg-danger">Non payé</span>';
-            break;
-          default:
-            statusHtml = '<span class="badge bg-secondary">Inconnu</span>';
+          case 'paid': statusHtml = '<span class="badge bg-success">Payé</span>'; break;
+          case 'pending': statusHtml = '<span class="badge bg-warning">En attente</span>'; break;
+          case 'unpaid': statusHtml = '<span class="badge bg-danger">Non payé</span>'; break;
+          default: statusHtml = '<span class="badge bg-secondary">Inconnu</span>';
         }
+        if (mStatus.is_late && mStatus.status !== 'paid') statusHtml += ' <span class="badge bg-danger">En retard</span>';
 
-        if (mStatus.is_late && mStatus.status !== 'paid') {
-          statusHtml += ' <span class="badge bg-danger">En retard</span>';
-        }
-
-        const isOwner = state.user && tontine.owner === state.user.id;
         let actionButtons = '';
-        if (isOwner && mStatus.status === 'pending' && mStatus.last_contribution_id) {
-          actionButtons = `
-                <div class="btn-group btn-group-sm" role="group">
-                    <button class="btn btn-outline-success" data-action="mark-paid" data-contribution-id="${mStatus.last_contribution_id}">
-                        <i class="bi bi-check-circle"></i> Payer
-                    </button>
-                    <button class="btn btn-outline-danger" data-action="mark-unpaid" data-contribution-id="${mStatus.last_contribution_id}">
-                        <i class="bi bi-x-circle"></i> Non payé
-                    </button>
-                </div>
-            `;
+        if (canModify && mStatus.status === 'pending' && mStatus.last_contribution_id) {
+          actionButtons = `<div class="btn-group btn-group-sm" role="group"><button class="btn btn-outline-success" data-action="mark-paid" data-contribution-id="${mStatus.last_contribution_id}"><i class="bi bi-check-circle"></i> Payer</button><button class="btn btn-outline-danger" data-action="mark-unpaid" data-contribution-id="${mStatus.last_contribution_id}"><i class="bi bi-x-circle"></i> Non payé</button></div>`;
         }
-
-        return `
-        <tr>
-          <td>${displayName}</td>
-          <td>${contactInfo}</td>
-          <td>
-            ${statusHtml}
-            ${mStatus.last_contribution_amount ? `<br><small class="text-muted">${formatCurrency(mStatus.last_contribution_amount)} le ${mStatus.last_contribution_date}</small>` : ''}
-          </td>
-          <td class="text-end">
-            ${actionButtons}
-          </td>
-        </tr>
-      `;
+        return `<tr><td>${displayName}</td><td>${contactInfo}</td><td>${statusHtml}${mStatus.last_contribution_amount ? `<br><small class="text-muted">${formatCurrency(mStatus.last_contribution_amount)} le ${mStatus.last_contribution_date}</small>` : ''}</td><td class="text-end">${actionButtons}</td></tr>`;
       }).join('');
 
-      // --- Event Listeners for new status buttons ---
+      // Event Listeners for status buttons
       const updateContributionStatus = async (contributionId, newStatus) => {
         try {
           await Api.patch(`/api/transactions/contributions/${contributionId}/`, { status: newStatus });
           notify('Succès', `Contribution mise à jour: ${newStatus}.`);
-          renderTontineDetail(tontine.id); // Refresh view
+          renderTontineDetail(tontine.id);
         } catch (error) {
-          console.error('Erreur lors de la mise à jour du statut:', error);
           notify('Erreur', `Impossible de mettre à jour: ${error.message}`);
         }
       };
+      tbody.querySelectorAll('button[data-action="mark-paid"]').forEach(button => button.addEventListener('click', (e) => updateContributionStatus(e.currentTarget.getAttribute('data-contribution-id'), 'paid')));
+      tbody.querySelectorAll('button[data-action="mark-unpaid"]').forEach(button => button.addEventListener('click', (e) => updateContributionStatus(e.currentTarget.getAttribute('data-contribution-id'), 'unpaid')));
 
-      tbody.querySelectorAll('button[data-action="mark-paid"]').forEach(button => {
-        button.addEventListener('click', (e) => {
-          const contributionId = e.currentTarget.getAttribute('data-contribution-id');
-          if (contributionId) updateContributionStatus(contributionId, 'paid');
-        });
-      });
-
-      tbody.querySelectorAll('button[data-action="mark-unpaid"]').forEach(button => {
-        button.addEventListener('click', (e) => {
-          const contributionId = e.currentTarget.getAttribute('data-contribution-id');
-          if (contributionId) updateContributionStatus(contributionId, 'unpaid');
-        });
-      });
-
-      const isOwner = state.user && tontine.owner === state.user.id;
-
-      // --- Owner Actions State Machine ---
-      const editTontineBtn = $('#editTontineBtn');
-      const deleteTontineBtn = $('#deleteTontineBtn');
-      const addMemberBtn = $('#addMemberBtn');
-      const designateSection = $('#designateWinnerSection');
-      const payoutBtn = $('#processPayoutBtn');
-      const validateBtn = $('#validateRoundBtn');
+      // --- Admin/Owner Actions State Machine ---
+      const adminControls = [$('#editTontineBtn'), $('#deleteTontineBtn'), $('#addMemberBtn'), $('#designateWinnerSection'), $('#processPayoutBtn'), $('#validateRoundBtn')];
       const tonRoundBanner = $('#tonRoundBanner');
+      [...adminControls, tonRoundBanner].forEach(el => el.classList.add('d-none'));
 
-      // Hide all owner controls by default
-      [editTontineBtn, deleteTontineBtn, addMemberBtn, designateSection, payoutBtn, validateBtn].forEach(el => el.classList.add('d-none'));
-      tonRoundBanner.classList.add('d-none');
-
-      if (isOwner) {
-        // Basic controls are always visible for owner
-        [editTontineBtn, deleteTontineBtn, addMemberBtn].forEach(el => el.classList.remove('d-none'));
-        editTontineBtn.onclick = () => handleEditTontine(tontine);
-        deleteTontineBtn.onclick = () => handleDeleteTontine(tontine);
-        addMemberBtn.onclick = () => handleAddMember(tontine);
+      if (canModify) {
+        [$('#editTontineBtn'), $('#deleteTontineBtn'), $('#addMemberBtn')].forEach(el => el.classList.remove('d-none'));
+        $('#editTontineBtn').onclick = () => handleEditTontine(tontine);
+        $('#deleteTontineBtn').onclick = () => handleDeleteTontine(tontine);
+        $('#addMemberBtn').onclick = () => handleAddMember(tontine);
 
         const roundsLeft = contributionStatus.completed_rounds < contributionStatus.total_rounds;
         const payoutDoneForCurrentRound = contributionStatus.withdrawals_for_current_round > 0;
-
         tonRoundBanner.classList.remove('d-none');
         tonRoundBanner.textContent = `Tour Actuel : ${tontine.current_round} / ${contributionStatus.total_rounds}`;
 
         if (tontine.designated_recipient) {
-          // STATE: READY FOR PAYOUT
-          payoutBtn.classList.remove('d-none');
+          $('#processPayoutBtn').classList.remove('d-none');
           const recipientName = tontine.designated_recipient_details?.name || 'le bénéficiaire désigné';
-          payoutBtn.innerHTML = `<i class="bi bi-check2-circle"></i> Payer ${recipientName} pour le tour ${tontine.current_round}`;
-          payoutBtn.disabled = false;
-          payoutBtn.onclick = async () => {
-            payoutBtn.disabled = true;
+          $('#processPayoutBtn').innerHTML = `<i class="bi bi-check2-circle"></i> Payer ${recipientName} pour le tour ${tontine.current_round}`;
+          $('#processPayoutBtn').disabled = false;
+          $('#processPayoutBtn').onclick = async () => {
+            $('#processPayoutBtn').disabled = true;
             try {
               const result = await Api.processPayout(tontine.id);
-              notify('Succès', result.message || 'Paiement effectué avec succès.');
+              notify('Succès', result.message || 'Paiement effectué.');
               renderTontineDetail(tontine.id);
             } catch (error) {
-              notify('Erreur', `Impossible d\'effectuer le paiement: ${error.message}`);
-              payoutBtn.disabled = false;
+              notify('Erreur', `Impossible d'effectuer le paiement: ${error.message}`);
+              $('#processPayoutBtn').disabled = false;
             }
           };
-
         } else if (payoutDoneForCurrentRound) {
-          // STATE: READY TO VALIDATE
           if (roundsLeft) {
-            validateBtn.classList.remove('d-none');
-            validateBtn.disabled = false;
-            validateBtn.onclick = async () => {
-              validateBtn.disabled = true;
+            $('#validateRoundBtn').classList.remove('d-none');
+            $('#validateRoundBtn').disabled = false;
+            $('#validateRoundBtn').onclick = async () => {
+              $('#validateRoundBtn').disabled = true;
               try {
                 const result = await Api.validateRound(tontine.id);
                 notify('Succès', result.message || 'Tour validé.');
                 renderTontineDetail(tontine.id);
               } catch (error) {
                 notify('Erreur', `Impossible de valider le tour: ${error.message}`);
-                validateBtn.disabled = false;
+                $('#validateRoundBtn').disabled = false;
               }
             };
           } else {
-            // STATE: TONTINE FINISHED
             tonRoundBanner.textContent = 'Tontine terminée !';
-            tonRoundBanner.classList.remove('alert-info');
-            tonRoundBanner.classList.add('alert-success');
+            tonRoundBanner.classList.replace('alert-info', 'alert-success');
+          }
+        } else if (roundsLeft) {
+          $('#designateWinnerSection').classList.remove('d-none');
+          const previousWinnerIds = new Set(tontine.withdrawals.map(w => w.beneficiary.id));
+          const eligibleMembers = members.filter(m => !previousWinnerIds.has(m.user));
+          if (eligibleMembers.length > 0) {
+            $('#eligibleMembersSelect').innerHTML = '<option value="">-- Sélectionnez un bénéficiaire --</option>' + eligibleMembers.map(m => `<option value="${m.user}">${m.user_first_name || ''} ${m.user_last_name || ''} (${m.user_email})</option>`).join('');
+            $('#designateWinnerBtn').disabled = false;
+            $('#designateWinnerBtn').onclick = async () => {
+              const selectedUserId = $('#eligibleMembersSelect').value;
+              if (!selectedUserId) return notify('Erreur', 'Veuillez sélectionner un membre.');
+              try {
+                const result = await Api.designateRecipient(tontine.id, selectedUserId);
+                notify('Succès', result.message || 'Bénéficiaire désigné.');
+                renderTontineDetail(tontine.id);
+              } catch (error) {
+                notify('Erreur', `Impossible de désigner le bénéficiaire: ${error.message}`);
+              }
+            };
+          } else {
+            $('#eligibleMembersSelect').innerHTML = '<option value="">Aucun membre éligible</option>';
+            $('#designateWinnerBtn').disabled = true;
           }
         } else {
-          // STATE: READY TO DESIGNATE
-          if (roundsLeft) {
-            designateSection.classList.remove('d-none');
-            const previousWinnerIds = new Set(tontine.withdrawals.map(w => w.beneficiary.id));
-            const eligibleMembers = members.filter(m => !previousWinnerIds.has(m.user));
-
-            if (eligibleMembers.length > 0) {
-              $('#eligibleMembersSelect').innerHTML = '<option value="">-- Sélectionnez un bénéficiaire --</option>' +
-                eligibleMembers.map(m => `<option value="${m.user}">${m.user_first_name || ''} ${m.user_last_name || ''} (${m.user_email})</option>`).join('');
-
-              $('#designateWinnerBtn').disabled = false;
-              $('#designateWinnerBtn').onclick = async () => {
-                const selectedUserId = $('#eligibleMembersSelect').value;
-                if (!selectedUserId) {
-                  notify('Erreur', 'Veuillez sélectionner un membre.');
-                  return;
-                }
-                try {
-                  const result = await Api.designateRecipient(tontine.id, selectedUserId);
-                  notify('Succès', result.message || 'Bénéficiaire désigné.');
-                  renderTontineDetail(tontine.id);
-                } catch (error) {
-                  notify('Erreur', `Impossible de désigner le bénéficiaire: ${error.message}`);
-                }
-              };
-            } else {
-              $('#eligibleMembersSelect').innerHTML = '<option value="">Aucun membre éligible</option>';
-              $('#designateWinnerBtn').disabled = true;
-            }
-          } else {
-            // STATE: TONTINE FINISHED
-            tonRoundBanner.textContent = 'Tontine terminée !';
-            tonRoundBanner.classList.remove('alert-info');
-            tonRoundBanner.classList.add('alert-success');
-          }
+          tonRoundBanner.textContent = 'Tontine terminée !';
+          tonRoundBanner.classList.replace('alert-info', 'alert-success');
         }
       }
-
     } catch (error) {
       notify('Erreur', `Impossible de charger les détails: ${error.message}`);
       location.hash = '#/tontines';
