@@ -30,31 +30,6 @@ class MeView(generics.GenericAPIView):
         return Response(serializer.data)
 
 
-class RedeemInvitationCodeView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    
-    VALID_CODE = 'tontine26'
-    
-    def post(self, request, *args, **kwargs):
-        code = request.data.get('code', '').strip()
-        
-        if not code:
-            return Response({'detail': 'Code requis.'}, status=400)
-        
-        # Check if user already has permission
-        if request.user.can_create_tontines:
-            return Response({'detail': 'Vous avez déjà le pouvoir de créer des tontines.'}, status=400)
-        
-        # Verify the code
-        if code != self.VALID_CODE:
-            return Response({'detail': 'Code invalide.'}, status=400)
-        
-        # Grant permission to create tontines
-        request.user.can_create_tontines = True
-        request.user.save()
-        
-        return Response({'detail': 'Code validé avec succès ! Vous pouvez maintenant créer des tontines.'})
-
 @ensure_csrf_cookie
 def login_view(request):
     if request.method == 'POST':

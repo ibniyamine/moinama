@@ -50,9 +50,25 @@ class IsTontineMember(permissions.BasePermission):
         return False
 
 
+class CanCreateTontines(permissions.BasePermission):
+    """
+    Allows access only to users who have the 'can_create_tontines' flag set to True.
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.can_create_tontines
+
+
 class TontineViewSet(viewsets.ModelViewSet):
     serializer_class = TontineSerializer
-    permission_classes = [permissions.IsAuthenticated, IsTontineAdminOrOwner]
+    # permission_classes = [permissions.IsAuthenticated, IsTontineAdminOrOwner] # Removed
+
+    def get_permissions(self):
+        if self.action == 'create':
+            # Only authenticated users with can_create_tontines permission can create tontines
+            return [permissions.IsAuthenticated(), CanCreateTontines()]
+        # For other actions, use the existing IsTontineAdminOrOwner permission
+        # Note: IsTontineAdminOrOwner already handles IsAuthenticated internally for object permissions
+        return [permissions.IsAuthenticated(), IsTontineAdminOrOwner()]
 
     def get_queryset(self):
         return Tontine.objects.all()

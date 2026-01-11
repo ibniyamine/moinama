@@ -59,7 +59,6 @@ const Api = (() => {
     login: (data) => request('/api/auth/token/', 'POST', data), // Added login function
     getMe: () => request('/api/accounts/me/'),
     getUsers: () => request('/api/accounts/users/'),
-    redeemCode: (code) => request('/api/accounts/redeem-code/', 'POST', { code }),
     getTontines: () => request('/api/tontines/'),
     createTontine: (data) => request('/api/tontines/', 'POST', data),
     getTontineDetail: (id) => request(`/api/tontines/${id}/`),
@@ -1394,43 +1393,6 @@ const App = (() => {
       }
     });
 
-    const confirmCodeBtnElement = $('#confirmCodeBtn');
-    if (confirmCodeBtnElement) {
-      confirmCodeBtnElement.addEventListener('click', async () => {
-        const codeInput = $('#invitationCode');
-        const code = codeInput.value.trim();
-        const modalEl = $('#enterCodeModal');
-
-        if (!code) {
-          notify('Erreur', 'Veuillez saisir un code.');
-          return;
-        }
-
-        const btn = $('#confirmCodeBtn');
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Validation...';
-
-        try {
-          const response = await Api.redeemCode(code);
-          notify('Succès', response.detail || 'Code validé avec succès !');
-          const modal = bootstrap.Modal.getInstance(modalEl);
-          modal.hide();
-          codeInput.value = '';
-          // Reload user data to update permissions if needed
-          state.user = await Api.getMe();
-          updateAuthUI(); // Update UI to show/hide buttons based on new permissions
-        } catch (error) {
-          notify('Erreur', error.message);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = originalText;
-        }
-      });
-    } else {
-      console.error('confirmCodeBtn not found in DOM');
-    }
-
     // The logout button is now inside a dynamically managed <li>, so we attach the event listener directly.
     // The <li>'s visibility is handled by updateAuthUI.
     const logoutBtnElement = $('#logoutBtn');
@@ -1443,18 +1405,6 @@ const App = (() => {
       });
     }
 
-    // Attach event to "Mettre un code" button to open modal
-    const enterCodeBtnElement = $('#enterCodeBtn');
-    if (enterCodeBtnElement) {
-      enterCodeBtnElement.addEventListener('click', () => {
-        const modalEl = document.getElementById('enterCodeModal');
-        if (modalEl) {
-          const modal = new bootstrap.Modal(modalEl);
-          modal.show();
-        }
-      });
-    }
-
     window.addEventListener('hashchange', () => routeTo());
   }
 
@@ -1464,7 +1414,6 @@ const App = (() => {
     const authDivider = $('#authDivider');
     const logoutItem = $('#logoutMenuItem');
     const currentUserNameSpan = $('#currentUserName');
-    const enterCodeItem = $('#enterCodeMenuItem');
     const newTontineBtn = $('#newTontineBtn');
     const createTontineBtn = $('#createTontineBtn');
 
@@ -1492,20 +1441,11 @@ const App = (() => {
         }
       }
 
-      // Show/hide "Mettre un code" button - only show if user doesn't have permission yet
-      if (enterCodeItem) {
-        if (canCreate) {
-          enterCodeItem.classList.add('d-none');
-        } else {
-          enterCodeItem.classList.remove('d-none');
-        }
-      }
     } else { // User is not logged in
       if (loginItem) loginItem.classList.remove('d-none');
       if (registerItem) registerItem.classList.remove('d-none');
       if (authDivider) authDivider.classList.add('d-none');
       if (logoutItem) logoutItem.classList.add('d-none');
-      if (enterCodeItem) enterCodeItem.classList.add('d-none');
       if (newTontineBtn) newTontineBtn.classList.add('d-none');
       if (createTontineBtn) createTontineBtn.classList.add('d-none');
       if (currentUserNameSpan) currentUserNameSpan.textContent = 'Invité';
