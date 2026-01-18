@@ -108,7 +108,7 @@ const App = (() => {
   }
 
   function formatCurrency(n) {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n).replace('XOF', 'FCFA');
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
   }
 
   function translateFrequency(freq) {
